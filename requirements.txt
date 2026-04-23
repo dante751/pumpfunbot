@@ -1,0 +1,25 @@
+# pump.fun Bot — Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# ── Solana core ────────────────────────────────────────────────
+solana>=0.34.0          # AsyncClient, TxOpts, commitment levels
+                        # also includes spl.token (ATA lookup)
+solders>=0.21.0         # Keypair, Pubkey, VersionedTransaction,
+                        # MessageV0, SystemProgram.transfer,
+                        # set_compute_unit_price (sweep tx build)
+
+# ── Networking ─────────────────────────────────────────────────
+requests>=2.31.0        # Sync HTTP fallback / metadata pre-checks
+
+# ── SSL / Certificates ──────────────────────────────────────────
+certifi>=2024.1.0       # Trusted CA bundle — fixes SSL errors on macOS/minimal Linux
+                        # (optional but strongly recommended)
+
+# ── Utilities ──────────────────────────────────────────────────
+base58>=2.1.1           # Base58 encode/decode for keypair handling
+python-dotenv>=1.0.0    # Loads .env config file
+colorama>=0.4.6         # Coloured terminal output
+
+# ── Implicit dependencies (pin to avoid resolver issues) ───────
+construct>=2.10.0       # Required by solana/solders internally
+typing-extensions>=4.0.0

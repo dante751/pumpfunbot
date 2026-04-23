@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PumpBot — pump.fun Trading Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:      #f9f9f7;
+    --surface: #ffffff;
+    --border:  #e4e4e0;
+    --text:    #111110;
+    --muted:   #888883;
+    --accent:  #111110;
+    --green:   #1a7a4a;
+    --mono:    'IBM Plex Mono', monospace;
+    --sans:    'IBM Plex Sans', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ── Nav ── */
+  nav {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: var(--bg); z-index: 10;
+  }
+  .logo { font-family: var(--mono); font-size: 14px; font-weight: 500; letter-spacing: 0.5px; }
+  .nav-links { display: flex; gap: 32px; list-style: none; }
+  .nav-links a { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .nav-links a:hover { color: var(--text); }
+
+  /* ── Layout ── */
+  .container { max-width: 820px; margin: 0 auto; padding: 0 40px; }
+
+  /* ── Hero ── */
+  .hero { padding: 96px 0 80px; border-bottom: 1px solid var(--border); }
+  .hero-tag {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 28px;
+  }
+  .hero h1 {
+    font-size: clamp(36px, 6vw, 58px); font-weight: 600;
+    line-height: 1.1; letter-spacing: -1.5px; margin-bottom: 24px;
+  }
+  .hero p {
+    font-size: 16px; color: var(--muted); max-width: 520px;
+    line-height: 1.7; margin-bottom: 40px;
+  }
+  .hero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  .btn {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.5px;
+    padding: 11px 22px; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { border-color: var(--text); }
+  .btn.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  .btn.primary:hover { background: #333; }
+
+  /* ── Section ── */
+  section { padding: 72px 0; border-bottom: 1px solid var(--border); }
+  .section-label {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    letter-spacing: 1px; text-transform: uppercase; margin-bottom: 40px;
+  }
+  h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 32px; }
+
+  /* ── Features list ── */
+  .features { list-style: none; display: flex; flex-direction: column; gap: 0; }
+  .features li {
+    display: flex; gap: 20px; align-items: baseline;
+    padding: 14px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .features li:last-child { border-bottom: none; }
+  .feat-num { font-family: var(--mono); font-size: 11px; color: var(--muted); min-width: 24px; }
+  .feat-text { color: var(--text); }
+  .feat-text span { color: var(--muted); font-size: 13px; display: block; margin-top: 2px; }
+
+  /* ── Flow ── */
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .flow-item {
+    display: grid; grid-template-columns: 32px 1fr;
+    gap: 20px; padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .flow-item:last-child { border-bottom: none; }
+  .flow-n { font-family: var(--mono); font-size: 11px; color: var(--muted); padding-top: 1px; }
+  .flow-title { font-weight: 600; margin-bottom: 4px; }
+  .flow-desc { color: var(--muted); font-size: 13px; line-height: 1.6; }
+
+  /* ── Config table ── */
+  .cfg-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; }
+  .cfg-table th {
+    text-align: left; padding: 10px 12px; font-size: 10px;
+    letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+    border-bottom: 1px solid var(--border); font-weight: 500;
+  }
+  .cfg-table td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cfg-table tr:last-child td { border-bottom: none; }
+  .cfg-table tr:hover td { background: #f4f4f2; }
+  .k { color: var(--text); }
+  .v { color: var(--green); }
+  .d { color: var(--muted); font-size: 11px; }
+
+  /* ── Upload ── */
+  #dropzone {
+    border: 1px dashed var(--border); padding: 48px 32px;
+    text-align: center; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    background: var(--surface);
+  }
+  #dropzone:hover, #dropzone.drag-over { border-color: var(--text); background: #f4f4f2; }
+  #dropzone p { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  #dropzone .hint { font-size: 11px; margin-top: 6px; }
+  #file-input { display: none; }
+
+  #file-status { font-family: var(--mono); font-size: 12px; margin-top: 14px; min-height: 18px; }
+  #file-status.ok  { color: var(--green); }
+  #file-status.err { color: #c0392b; }
+
+  #verify-btn {
+    display: none; margin-top: 16px;
+    width: 100%; padding: 12px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.5px;
+    background: var(--text); color: #fff; border: none; cursor: pointer;
+    transition: background 0.15s;
+  }
+  #verify-btn:hover { background: #333; }
+
+  #result-msg {
+    display: none; margin-top: 16px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    padding: 16px; border: 1px solid var(--border);
+    white-space: pre-wrap;
+  }
+  #result-msg.ok  { border-color: #b7d9c4; background: #f0faf4; color: var(--green); }
+  #result-msg.err { border-color: #f5c6c6; background: #fdf0f0; color: #c0392b; }
+
+  .security-note {
+    margin-top: 20px; padding: 14px 16px;
+    border: 1px solid var(--border); background: var(--surface);
+    font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.7;
+  }
+
+  /* ── Downloads ── */
+  .dl-list { display: flex; flex-direction: column; gap: 0; }
+  .dl-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 18px 0; border-bottom: 1px solid var(--border);
+  }
+  .dl-item:last-child { border-bottom: none; }
+  .dl-info .dl-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .dl-info .dl-desc { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .dl-link {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.5px;
+    border: 1px solid var(--border); padding: 8px 16px;
+    white-space: nowrap; transition: border-color 0.15s;
+  }
+  .dl-link:hover { border-color: var(--text); }
+
+  /* ── Footer ── */
+  footer {
+    padding: 40px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px;
+  }
+  footer a:hover { color: var(--text); }
+
+  @media (max-width: 600px) {
+    nav { padding: 16px 20px; }
+    .nav-links { display: none; }
+    .container { padding: 0 20px; }
+    .hero { padding: 64px 0 48px; }
+    footer { padding: 32px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">PumpBot</div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#flow">How it works</a></li>
+    <li><a href="#config">Config</a></li>
+    <li><a href="#upload">Upload</a></li>
+    <li><a href="#download">Download</a></li>
+  </ul>
+</nav>
+
+<div class="container">
+
+  <!-- HERO -->
+  <div class="hero">
+    <p class="hero-tag">Solana · pump.fun · Python</p>
+    <h1>Autonomous pump.fun<br>trading bot.</h1>
+    <p>Creates a token, dev-buys on launch, sells after a configurable delay. No manual steps.</p>
+    <div class="hero-btns">
+      <a href="pumpfun_bot.zip" class="btn primary" download>↓ Download</a>
+      <a href="#flow" class="btn">How it works</a>
+      <a href="SETUP_GUIDE.txt" class="btn" download>Setup guide</a>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <p class="section-label">Features</p>
+    <ul class="features">
+      <li><span class="feat-num">01</span><div class="feat-text">Atomic token creation + dev-buy in a single bundled transaction<span>No gap between launch and your buy</span></div></li>
+      <li><span class="feat-num">02</span><div class="feat-text">Automatic IPFS metadata upload before launch<span>Image, name, symbol, description, socials</span></div></li>
+      <li><span class="feat-num">03</span><div class="feat-text">Configurable sell delay and percentage<span>Sell 3 seconds after launch or wait minutes</span></div></li>
+      <li><span class="feat-num">05</span><div class="feat-text">Per-operation slippage and priority fee controls<span>Set independently for buy, sell, and sweep</span></div></li>
+      <li><span class="feat-num">06</span><div class="feat-text">Pre-flight safety checks before any transaction<span>Balance, exposure cap, mainnet guard, sweep wallet validation</span></div></li>
+      <li><span class="feat-num">07</span><div class="feat-text">Auto-retry with configurable attempts and delay<span>Handles RPC blips and congestion gracefully</span></div></li>
+      <li><span class="feat-num">08</span><div class="feat-text">Dry run mode — full simulation, no real transactions<span>Test config safely before going live</span></div></li>
+      <li><span class="feat-num">09</span><div class="feat-text">Timestamped session logs saved to disk automatically</div></li>
+      <li><span class="feat-num">10</span><div class="feat-text">SSL hardened with certifi — works on macOS and minimal Linux</div></li>
+    </ul>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="flow">
+    <p class="section-label">Execution flow</p>
+    <div class="flow">
+      <div class="flow-item">
+        <div class="flow-n">01</div>
+        <div>
+          <div class="flow-title">Pre-flight checks</div>
+          <p class="flow-desc">Validates private key, RPC (mainnet only — devnet causes 400 errors), balance, exposure cap. Aborts before spending anything if a check fails.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-n">02</div>
+        <div>
+          <div class="flow-title">Upload metadata to IPFS</div>
+          <p class="flow-desc">Posts image and token info to pump.fun/api/ipfs. Returns a metadataUri used in the creation transaction.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-n">03</div>
+        <div>
+          <div class="flow-title">Create token + dev-buy</div>
+          <p class="flow-desc">Single atomic transaction via pumpportal.fun. Creates the bonding curve and executes the buy simultaneously. Mint keypair co-signs.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-n">04</div>
+        <div>
+          <div class="flow-title">Wait</div>
+          <p class="flow-desc">Holds for SELL_DELAY_SECONDS. Set to 3s for a fast flip or longer to let buyers build the price.</p>
+        </div>
+      </div>
+      <div class="flow-item">
+        <div class="flow-n">05</div>
+        <div>
+          <div class="flow-title">Sell</div>
+          <p class="flow-desc">Reads actual on-chain token balance, sells the configured percentage. Retries on failure.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIG -->
+  <section id="config">
+    <p class="section-label">Configuration — .env</p>
+    <table class="cfg-table">
+      <thead>
+        <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">PRIVATE_KEY</td><td class="v">—</td><td class="d">Base58 wallet private key. Required.</td></tr>
+        <tr><td class="k">RPC_URL</td><td class="v">mainnet-beta</td><td class="d">Mainnet only. Devnet will 400 on create.</td></tr>
+        <tr><td class="k">TOKEN_NAME</td><td class="v">MyToken</td><td class="d">Token display name.</td></tr>
+        <tr><td class="k">TOKEN_SYMBOL</td><td class="v">MTK</td><td class="d">Ticker symbol.</td></tr>
+        <tr><td class="k">TOKEN_DESCRIPTION</td><td class="v">—</td><td class="d">Short description on pump.fun.</td></tr>
+        <tr><td class="k">TOKEN_IMAGE_PATH</td><td class="v">token_image.png</td><td class="d">PNG/JPG path. 500×500px recommended.</td></tr>
+        <tr><td class="k">TOKEN_TWITTER</td><td class="v">""</td><td class="d">Optional Twitter/X URL.</td></tr>
+        <tr><td class="k">TOKEN_TELEGRAM</td><td class="v">""</td><td class="d">Optional Telegram URL.</td></tr>
+        <tr><td class="k">TOKEN_WEBSITE</td><td class="v">""</td><td class="d">Optional website URL.</td></tr>
+        <tr><td class="k">DEV_BUY_SOL</td><td class="v">0.5</td><td class="d">SOL to spend on the dev-buy at creation.</td></tr>
+        <tr><td class="k">SELL_DELAY_SECONDS</td><td class="v">10</td><td class="d">Seconds to wait before selling.</td></tr>
+        <tr><td class="k">SELL_PERCENTAGE</td><td class="v">100.0</td><td class="d">% of token balance to sell.</td></tr>
+        <tr><td class="k">BUY_SLIPPAGE_BPS</td><td class="v">2000</td><td class="d">Buy slippage in bps (2000 = 20%).</td></tr>
+        <tr><td class="k">SELL_SLIPPAGE_BPS</td><td class="v">2500</td><td class="d">Sell slippage in bps (2500 = 25%).</td></tr>
+        <tr><td class="k">PRIORITY_FEE_LAMPORTS</td><td class="v">100000</td><td class="d">Validator tip in lamports for trade txs.</td></tr>
+        <tr><td class="k">JITO_TIP_LAMPORTS</td><td class="v">0</td><td class="d">Jito bundle tip. 0 = disabled.</td></tr>
+        <tr><td class="k">TX_COMMITMENT</td><td class="v">confirmed</td><td class="d">processed | confirmed | finalized</td></tr>
+        <tr><td class="k">MAX_RETRIES</td><td class="v">3</td><td class="d">Retry attempts per transaction.</td></tr>
+        <tr><td class="k">CONFIRM_TIMEOUT_SECONDS</td><td class="v">60</td><td class="d">Seconds to poll for confirmation.</td></tr>
+        <tr><td class="k">MAX_SOL_EXPOSURE</td><td class="v">2.0</td><td class="d">Hard cap on SOL spend per session.</td></tr>
+        <tr><td class="k">MIN_SOL_BALANCE</td><td class="v">0.05</td><td class="d">Abort if wallet drops below this.</td></tr>
+        <tr><td class="k">DRY_RUN</td><td class="v">false</td><td class="d">true = simulate, no real transactions.</td></tr>
+        <tr><td class="k">SWEEP_RESERVE_LAMPORTS</td><td class="v">10000000</td><td class="d">Lamports kept after sweep (0.01 SOL).</td></tr>
+        <tr><td class="k">SWEEP_PRIORITY_FEE_LAMPORTS</td><td class="v">5000</td><td class="d">Priority fee for the sweep transfer.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- DOWNLOAD -->
+  <section id="download">
+    <p class="section-label">Download</p>
+    <div class="dl-list">
+      <div class="dl-item">
+        <div class="dl-info">
+          <div class="dl-name">Full Package</div>
+          <div class="dl-desc">pumpfun_bot.py · requirements.txt · .env · SETUP_GUIDE.txt</div>
+        </div>
+        <a href="pumpfun_bot.zip" class="dl-link" download>↓ .zip</a>
+      </div>
+      <div class="dl-item">
+        <div class="dl-info">
+          <div class="dl-name">Setup Guide</div>
+          <div class="dl-desc">Install, config, error reference, security checklist</div>
+        </div>
+        <a href="SETUP_GUIDE.txt" class="dl-link" download>↓ .txt</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <span>PumpBot · pump.fun · pumpportal.fun</span>
+  <span>Trading carries significant financial risk. Use at your own discretion.</span>
+</footer>
+
+<script>
+const dz        = document.getElementById('dropzone');
+const fileIn    = document.getElementById('file-input');
+const statusEl  = document.getElementById('file-status');
+const verifyBtn = document.getElementById('verify-btn');
+const resultMsg = document.getElementById('result-msg');
+
+const EXPECTED  = ['pumpfun_bot.py', 'requirements.txt', '.env.example', 'SETUP_GUIDE.txt'];
+const FORBIDDEN = ['.env'];
+
+let selectedFile = null;
+
+dz.addEventListener('click', () => fileIn.click());
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+fileIn.addEventListener('change', () => handleFile(fileIn.files[0]));
+
+function handleFile(file) {
+  resultMsg.style.display = 'none';
+  if (!file) return;
+  if (!file.name.endsWith('.zip')) {
+    statusEl.className = 'err';
+    statusEl.textContent = '✗ Must be a .zip file';
+    verifyBtn.style.display = 'none';
+    return;
+  }
+  selectedFile = file;
+  statusEl.className = 'ok';
+  statusEl.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  verifyBtn.style.display = 'block';
+}
+
+verifyBtn.addEventListener('click', () => {
+  if (!selectedFile) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const u8   = new Uint8Array(e.target.result);
+    const text = new TextDecoder('latin1').decode(u8);
+
+    if (u8[0] !== 0x50 || u8[1] !== 0x4B) {
+      show(false, '✗ Not a valid ZIP file.');
+      return;
+    }
+
+    const found = [], flagged = [];
+    let i = 0;
+    while (i < u8.length - 4) {
+      if (u8[i]===0x50 && u8[i+1]===0x4B && u8[i+2]===0x03 && u8[i+3]===0x04) {
+        const fnLen = u8[i+26] | (u8[i+27]<<8);
+        const fname = text.slice(i+30, i+30+fnLen).trim();
+        if (fname && !fname.endsWith('/')) {
+          const base = fname.split('/').pop();
+          found.push(base);
+          if (FORBIDDEN.some(f => base === f || base === '.env')) flagged.push(base);
+        }
+        i += 30 + fnLen;
+      } else { i++; }
+    }
+
+    const missing = EXPECTED.filter(f => !found.includes(f));
+    const lines   = [`Files: ${found.join(', ')}`];
+    if (missing.length) lines.push(`Missing: ${missing.join(', ')}`);
+
+    show(missing.length === 0,
+      missing.length === 0
+        ? `✓ Package looks good.\n${lines.join('\n')}`
+        : `✗ Incomplete package.\n${lines.join('\n')}`
+    );
+  };
+  reader.readAsArrayBuffer(selectedFile);
+});
+
+function show(ok, msg) {
+  resultMsg.style.display = 'block';
+  resultMsg.className = ok ? 'ok' : 'err';
+  resultMsg.textContent = msg;
+}
+</script>
+</body>
+</html>

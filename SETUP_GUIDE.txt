@@ -1,0 +1,288 @@
+═══════════════════════════════════════════════════════════════
+  pump.fun Trading Bot — Setup & Troubleshooting Guide
+═══════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────────────
+STEP 1 — PREREQUISITES
+─────────────────────────────────────────────────────────────
+You need:
+  • Python 3.11 or higher
+  • A funded Solana MAINNET wallet (private key in Base58)
+  • A token image file (PNG or JPG) for your token
+  • A mainnet RPC endpoint (see Step 3)
+
+To check your Python version:
+  python3 --version
+
+If below 3.11, download from https://www.python.org/downloads/
+
+
+─────────────────────────────────────────────────────────────
+STEP 2 — INSTALL DEPENDENCIES
+─────────────────────────────────────────────────────────────
+In your terminal, navigate to the folder containing the bot files
+and run:
+
+  pip3 install -r requirements.txt
+
+Then install certifi separately (fixes SSL errors on most systems):
+
+  pip3 install certifi
+
+If you get an "externally managed environment" error (common on
+Linux), add the flag:
+
+  pip3 install -r requirements.txt --break-system-packages
+  pip3 install certifi --break-system-packages
+
+  ── Common install errors ──────────────────────────────────
+  ERROR: No matching distribution found for spl-token
+    → This package does not exist on PyPI. Remove it from
+      requirements.txt if present. Token utilities are bundled
+      inside the `solana` package.
+
+  ERROR: Could not build wheels for solders
+    → Run: pip3 install --upgrade pip setuptools wheel
+      Then retry.
+
+
+─────────────────────────────────────────────────────────────
+STEP 3 — CONFIGURE YOUR .env FILE
+─────────────────────────────────────────────────────────────
+Copy .env.example to .env:
+
+  cp .env.example .env
+
+Then open .env and fill in the values below.
+
+  ── Required fields ────────────────────────────────────────
+
+  PRIVATE_KEY
+    Your Solana wallet private key in Base58 format.
+    Export from Phantom: Settings → Security → Export Private Key
+    ⚠️  Never share this with anyone. Never commit it to git.
+
+  RPC_URL
+    ⚠️  MUST be a MAINNET endpoint. pump.fun and pumpportal.fun
+    are mainnet-only. Using devnet or testnet will cause a
+    400 Bad Request error on every create transaction.
+
+    Free (slow, rate-limited):
+      https://api.mainnet-beta.solana.com
+
+    Paid (recommended for production):
+      Helius:   https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
+      QuickNode: get endpoint from quicknode.com
+      Triton:    get endpoint from triton.one
+
+  TOKEN_IMAGE_PATH
+    Path to your token image file (PNG or JPG).
+    Example: token_image.png  (place it in the same folder as the bot)
+    The image is uploaded to IPFS before the token is created.
+
+  ── Token metadata ─────────────────────────────────────────
+
+  TOKEN_NAME        Display name of your token (e.g. MyToken)
+  TOKEN_SYMBOL      Ticker symbol (e.g. MTK)
+  TOKEN_DESCRIPTION Short description shown on pump.fun
+  TOKEN_TWITTER     Optional: Twitter/X URL
+  TOKEN_TELEGRAM    Optional: Telegram group URL
+  TOKEN_WEBSITE     Optional: Website URL
+
+  ── Trading settings ───────────────────────────────────────
+
+  DEV_BUY_SOL
+    SOL to spend on the bundled dev-buy at token creation.
+    This is your initial buy, executed atomically with the
+    token creation transaction.
+    Start small (0.1–0.5 SOL) while testing.
+    ⚠️  ~30% of pump.fun supply costs 30–90+ SOL depending
+    on the bonding curve state. Don't set this higher than
+    you are prepared to lose.
+
+  SELL_DELAY_SECONDS
+    How many seconds to wait after creation before selling.
+    Default: 10
+    Set higher (30–60) if you want to wait for more buyers.
+    Set lower (3–5) for a fast flip.
+
+  SELL_PERCENTAGE
+    Percentage of your token balance to sell (0–100).
+    Default: 100 (sell everything)
+
+  ── Slippage ───────────────────────────────────────────────
+
+  BUY_SLIPPAGE_BPS
+    Buy slippage in basis points. 100 bps = 1%.
+    Default: 2000 (= 20%)
+    The bot converts this to a percent integer before sending
+    to the API (2000 bps → 20%). You do not need to change
+    the format — just set it in basis points.
+
+  SELL_SLIPPAGE_BPS
+    Sell slippage in basis points.
+    Default: 2500 (= 25%)
+    Set higher if sells are failing due to price movement.
+
+  ── Priority fees ──────────────────────────────────────────
+
+  PRIORITY_FEE_LAMPORTS
+    Validator tip for the create and sell transactions.
+    Stored as lamports, converted to SOL by the bot.
+    Higher = faster inclusion during network congestion.
+      Quiet network : 50,000 – 100,000  lamports
+      Normal        : 100,000 – 500,000 lamports
+      Busy/sniping  : 500,000+           lamports
+    Default: 100,000
+
+
+
+  ── Safety guards ──────────────────────────────────────────
+
+  MAX_SOL_EXPOSURE
+    Hard cap on SOL the bot can spend in one session.
+    If DEV_BUY_SOL exceeds this, the bot aborts before
+    doing anything. Prevents accidental large buys.
+    Default: 2.0
+
+  MIN_SOL_BALANCE
+    Bot aborts if wallet balance drops below this (SOL).
+    Default: 0.05
+
+  DRY_RUN
+    Set to true to simulate everything without sending
+    any real transactions. Useful for testing config.
+    Default: false
+
+─────────────────────────────────────────────────────────────
+STEP 4 — PREPARE YOUR TOKEN IMAGE
+─────────────────────────────────────────────────────────────
+  • PNG or JPG format
+  • Recommended: 500×500 px square
+  • Keep under 1 MB for fast IPFS upload
+  • Place the file at the path set in TOKEN_IMAGE_PATH
+    (default: token_image.png in the same folder as the bot)
+
+
+─────────────────────────────────────────────────────────────
+STEP 5 — TEST WITH DRY RUN FIRST
+─────────────────────────────────────────────────────────────
+Before using real SOL, verify everything is configured:
+
+  1. Set DRY_RUN=true in your .env
+  2. Run the bot: python3 pumpfun_bot.py
+  3. Confirm you see:
+       ✅ Pre-flight passed
+       ✅ Metadata uploaded (real IPFS upload still happens)
+       ⚠️  DRY RUN — tx not sent  (for create and sell)
+  4. If pre-flight passes, your config is valid.
+  5. Set DRY_RUN=false when ready for a live run.
+
+
+─────────────────────────────────────────────────────────────
+STEP 6 — RUN THE BOT
+─────────────────────────────────────────────────────────────
+  python3 pumpfun_bot.py
+
+The bot will:
+  1. Pre-flight checks  — validates wallet, balance, config
+  2. Upload metadata    — image + token info → IPFS
+  3. Create + dev-buy  — single atomic transaction
+  4. Wait              — SELL_DELAY_SECONDS
+  5. Sell              — sells SELL_PERCENTAGE of balance
+
+A timestamped log file is saved automatically (e.g. bot_20260423_103000.log).
+
+
+─────────────────────────────────────────────────────────────
+TROUBLESHOOTING — ERROR REFERENCE
+─────────────────────────────────────────────────────────────
+
+  ── SSL: CERTIFICATE_VERIFY_FAILED ────────────────────────
+  Cause:  System SSL certificate store is missing or outdated.
+          Common on macOS and minimal Linux installs.
+  Fix:    pip install certifi
+          The bot automatically uses certifi if installed.
+          If the error persists, the bot will disable SSL
+          verification with a warning and continue.
+
+  ── IPFS upload failed (404) ───────────────────────────────
+  Cause:  Wrong IPFS endpoint URL.
+  Fix:    The correct URL is https://pump.fun/api/ipfs
+          Do not use pumpportal.fun for IPFS uploads.
+          This is hardcoded in the bot — no action needed
+          unless you have modified it.
+
+  ── Create tx failed (400): Bad Request ────────────────────
+  Cause 1: RPC_URL is pointing at devnet or testnet.
+           pumpportal.fun is MAINNET ONLY. Any non-mainnet
+           RPC will cause a 400 on every create call.
+  Fix 1:  Set RPC_URL to a mainnet endpoint in .env.
+           The bot will now detect this in pre-flight and
+           abort early with a clear error message.
+
+  Cause 2: Wallet has insufficient SOL for the dev-buy.
+  Fix 2:  Check your balance. You need DEV_BUY_SOL + ~0.05
+           SOL for transaction fees minimum.
+
+  Cause 3: Token image file not found.
+  Fix 3:  Check TOKEN_IMAGE_PATH in .env points to a real file.
+
+  ── Create tx failed (400): Bad Request (after IPFS works) ─
+  Cause:  The tokenMetadata field format is wrong.
+          It must be a JSON string, not a nested object.
+          This is handled automatically by the bot.
+  Fix:    Ensure you are running the latest version of
+          pumpfun_bot.py from this package.
+
+  ── Token balance is 0 — nothing to sell ──────────────────
+  Cause:  The RPC has not yet indexed the new token account
+          by the time the sell runs.
+  Fix:    Increase SELL_DELAY_SECONDS (try 20–30).
+          The token account exists — the RPC just needs
+          more time to see it after the create confirms.
+
+  ── Sell tx failed (400) ───────────────────────────────────
+  Cause:  Slippage too low for fast-moving price, or token
+          has already migrated off pump.fun bonding curve.
+  Fix:    Increase SELL_SLIPPAGE_BPS (try 3000 = 30%).
+          If the token graduated to Raydium, change
+          pool=pump to pool=raydium in the sell payload.
+          (Currently requires a code edit.)
+
+  ── Transaction confirmation timeout ──────────────────────
+  Cause:  Network congestion or RPC is slow/unresponsive.
+  Fix:    Increase PRIORITY_FEE_LAMPORTS.
+          Switch to a premium RPC endpoint.
+          Increase CONFIRM_TIMEOUT_SECONDS (default 60).
+
+  ── All N retries failed ───────────────────────────────────
+  Cause:  Persistent tx failure (bad RPC, low fee, or the
+          bonding curve is in an unexpected state).
+  Fix:    Check MAX_RETRIES and RETRY_DELAY_SECONDS.
+          Check PRIORITY_FEE_LAMPORTS — raise if network busy.
+          Check your RPC endpoint is responsive.
+
+  ── Fatal error: Cannot connect to host pumpportal.fun ────
+  Cause:  Network issue or SSL failure connecting to the API.
+  Fix:    pip install certifi
+          Check your internet connection.
+          If behind a proxy or VPN, try disabling it.
+
+  ── spl-token: No matching distribution found ─────────────
+  Cause:  spl-token is not a PyPI package.
+  Fix:    Remove it from requirements.txt. SPL token
+          functionality is bundled inside the solana package.
+
+─────────────────────────────────────────────────────────────
+SECURITY REMINDERS
+─────────────────────────────────────────────────────────────
+  • Never share your PRIVATE_KEY with anyone
+  • Never commit your .env file to git
+    Add it to .gitignore: echo ".env" >> .gitignore
+  • Only fund the trading wallet with what you are
+    prepared to lose — pump.fun is high risk
+  • Use DRY_RUN=true to test any config changes before
+    going live with real SOL
+
+═══════════════════════════════════════════════════════════════
