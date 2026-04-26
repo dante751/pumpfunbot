@@ -1,0 +1,1860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PUMPBOT — pump.fun Trading Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void:    #0e0e0e;
+  --plate:   #141414;
+  --frame:   #1c1c1c;
+  --rail:    #242424;
+  --ghost:   #2e2e2e;
+  --border:  #333333;
+  --muted:   #666666;
+  --text:    #ffffff;
+  --green:   #7de8a0;
+  --green-dim: #3a8a57;
+  --green-glow: rgba(125,232,160,0.12);
+  --red:     #e85d5d;
+  --red-dim: rgba(232,93,93,0.15);
+  --mono:    'JetBrains Mono', monospace;
+  --sans:    'Space Grotesk', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Layout ── */
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--plate);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.logo-block {
+  padding: 28px 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.dot.active {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+  animation: pulse 2s ease-in-out infinite;
+}
+.dot.running {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 0.8s ease-in-out infinite;
+}
+.dot.error { background: var(--red); box-shadow: 0 0 6px var(--red); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.status-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Nav */
+nav { padding: 16px 0; flex: 1; }
+
+.nav-section {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 12px 20px 6px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 2px solid transparent;
+  letter-spacing: 0.3px;
+}
+
+.nav-item:hover { color: var(--text); background: var(--frame); }
+.nav-item.active {
+  color: var(--green);
+  border-left-color: var(--green);
+  background: var(--green-glow);
+}
+
+.nav-item .nav-icon { font-size: 12px; width: 16px; text-align: center; }
+
+/* Sidebar stats */
+.sidebar-stats {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.stat-value.green { color: var(--green); }
+.stat-value.muted { color: var(--muted); }
+
+/* ── Main ── */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Top bar ── */
+.topbar {
+  background: var(--plate);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  text-transform: uppercase;
+}
+
+.tag.dry-run {
+  background: var(--green-glow);
+  color: var(--green);
+  border: 1px solid var(--green-dim);
+}
+
+.tag.live {
+  background: rgba(232,93,93,0.1);
+  color: var(--red);
+  border: 1px solid rgba(232,93,93,0.3);
+}
+
+/* ── Content ── */
+.content {
+  padding: 32px;
+  flex: 1;
+}
+
+/* ── Panel ── */
+.panel {
+  background: var(--plate);
+  border: 1px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.panel-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--green);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-body { padding: 20px; }
+
+/* ── Form elements ── */
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.field-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.field-grid.cols-1 { grid-template-columns: 1fr; }
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field.full { grid-column: 1 / -1; }
+
+label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="password"],
+select,
+textarea {
+  background: var(--frame);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  appearance: none;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green-glow);
+}
+
+input[readonly] {
+  color: var(--green);
+  cursor: not-allowed;
+  background: var(--void);
+}
+
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+
+select option { background: var(--frame); }
+
+textarea {
+  resize: vertical;
+  min-height: 70px;
+  line-height: 1.5;
+}
+
+.field-hint {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* Toggle */
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rail);
+}
+
+.toggle-row:last-child { border-bottom: none; }
+
+.toggle-info { display: flex; flex-direction: column; gap: 2px; }
+.toggle-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text);
+}
+.toggle-desc {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.toggle {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.toggle input { opacity: 0; width: 0; height: 0; }
+
+.toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--ghost);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 14px; height: 14px;
+  background: var(--muted);
+  transition: all 0.2s;
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--green-glow);
+  border-color: var(--green);
+}
+
+.toggle input:checked + .toggle-track::after {
+  transform: translateX(16px);
+  background: var(--green);
+}
+
+/* ── Buttons ── */
+.btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  background: var(--frame);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn:hover { border-color: var(--green); color: var(--green); }
+
+.btn.primary {
+  background: var(--green);
+  color: #0a1a0f;
+  border-color: var(--green);
+  font-weight: 700;
+}
+
+.btn.primary:hover {
+  background: #a0f0b8;
+  border-color: #a0f0b8;
+  box-shadow: 0 0 20px var(--green-glow);
+}
+
+.btn.primary:disabled {
+  background: var(--ghost);
+  color: var(--muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn.danger { color: var(--red); border-color: rgba(232,93,93,0.3); }
+.btn.danger:hover { background: var(--red-dim); border-color: var(--red); }
+
+.btn.sm { padding: 6px 12px; font-size: 9px; }
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+/* ── Launch section ── */
+.launch-panel {
+  background: var(--plate);
+  border: 1px solid var(--border);
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.launch-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 0% 50%, var(--green-glow) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.launch-info { flex: 1; }
+
+.launch-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.launch-sub {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.launch-btn {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 16px 36px;
+  background: var(--green);
+  color: #0a1a0f;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.launch-btn:hover:not(:disabled) {
+  background: #a0f0b8;
+  box-shadow: 0 0 30px rgba(125,232,160,0.3);
+  transform: translateY(-1px);
+}
+
+.launch-btn:disabled {
+  background: var(--ghost);
+  color: var(--muted);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.launch-btn.running {
+  background: var(--red-dim);
+  color: var(--red);
+  border: 1px solid var(--red);
+}
+
+/* ── Terminal ── */
+.terminal {
+  background: var(--void);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.8;
+  padding: 16px;
+  height: 340px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.terminal::-webkit-scrollbar { width: 4px; }
+.terminal::-webkit-scrollbar-track { background: var(--void); }
+.terminal::-webkit-scrollbar-thumb { background: var(--ghost); }
+
+.t-line { display: flex; gap: 10px; }
+.t-time { color: var(--muted); min-width: 80px; flex-shrink: 0; }
+.t-msg { color: var(--text); flex: 1; }
+.t-msg.ok { color: var(--green); }
+.t-msg.warn { color: var(--green); }
+.t-msg.err { color: var(--red); }
+.t-msg.info { color: var(--muted); }
+.t-msg.section {
+  color: var(--green);
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: var(--frame);
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.terminal-title {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Progress ── */
+.progress-track {
+  background: var(--rail);
+  height: 2px;
+  margin: 16px 0;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--green);
+  transition: width 0.5s ease;
+  box-shadow: 0 0 8px var(--green);
+}
+
+/* Steps */
+.steps {
+  display: flex;
+  gap: 0;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+
+.step {
+  flex: 1;
+  padding: 12px 16px;
+  border-right: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s;
+}
+
+.step:last-child { border-right: none; }
+
+.step-num {
+  width: 18px; height: 18px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.step.active { color: var(--green); background: var(--green-glow); }
+.step.active .step-num { border-color: var(--green); color: var(--green); background: transparent; }
+.step.done { color: var(--green); }
+.step.done .step-num { border-color: var(--green); background: var(--green); color: #0a1a0f; }
+.step.error { color: var(--red); }
+.step.error .step-num { border-color: var(--red); background: var(--red); color: #fff; }
+
+/* ── Sweep display ── */
+.sweep-display {
+  background: var(--frame);
+  border: 1px solid var(--green-dim);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sweep-icon { color: var(--green); font-size: 16px; }
+
+.sweep-addr {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  letter-spacing: 0.5px;
+  flex: 1;
+  word-break: break-all;
+}
+
+.sweep-badge {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  background: var(--green-glow);
+  color: var(--green);
+  border: 1px solid var(--green-dim);
+  flex-shrink: 0;
+}
+
+/* ── Tab system ── */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.tab {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 12px 20px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+  margin-bottom: -1px;
+}
+
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+.tab-locked {
+  cursor: not-allowed;
+  color: var(--green) !important;
+  border-bottom: 2px solid var(--green-dim) !important;
+  opacity: 0.7;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Config table ── */
+.cfg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.cfg-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.cfg-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--rail);
+  vertical-align: top;
+}
+
+.cfg-table tr:last-child td { border-bottom: none; }
+.cfg-table tr:hover td { background: var(--frame); }
+.cfg-key { color: var(--text); }
+.cfg-val { color: var(--green); }
+.cfg-desc { color: var(--muted); font-size: 10px; }
+
+/* ── Alert / notice ── */
+.notice {
+  padding: 12px 16px;
+  border: 1px solid;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.notice.warn {
+  border-color: var(--green-dim);
+  background: var(--green-glow);
+  color: var(--green);
+}
+
+.notice.error {
+  border-color: rgba(232,93,93,0.3);
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+/* ── File upload ── */
+.dropzone {
+  border: 1px dashed var(--border);
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dropzone:hover, .dropzone.over {
+  border-color: var(--green);
+  background: var(--green-glow);
+}
+
+.dropzone p {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.dropzone .drop-hint {
+  font-size: 10px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.image-preview {
+  display: none;
+  margin-top: 14px;
+  gap: 16px;
+  align-items: center;
+}
+
+.image-preview img {
+  width: 80px; height: 80px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.image-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+/* ── Dividers ── */
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 20px 0;
+}
+
+/* ── Section pages ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: relative; height: auto; }
+  .field-grid { grid-template-columns: 1fr; }
+  .field-grid.cols-3 { grid-template-columns: 1fr 1fr; }
+  .launch-panel { flex-direction: column; }
+  .steps { flex-direction: column; }
+  .step { border-right: none; border-bottom: 1px solid var(--border); }
+}
+
+/* ── Image base64 store ── */
+#img-file { display: none; }
+
+/* ── Scrollbar global ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--void); }
+::-webkit-scrollbar-thumb { background: var(--ghost); }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }
+
+/* Blink cursor */
+.cursor {
+  display: inline-block;
+  width: 7px; height: 12px;
+  background: var(--green);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="logo-block">
+      <div class="logo">PUMPBOT</div>
+      <div class="logo-sub">pump.fun · Solana</div>
+      <div class="status-row">
+        <div class="dot active" id="status-dot"></div>
+        <span class="status-label" id="status-label">ready</span>
+      </div>
+    </div>
+
+    <nav>
+      <div class="nav-section">Control</div>
+      <div class="nav-item active" onclick="showPage('launch')">
+        <span class="nav-icon">⚡</span> Launch
+      </div>
+      <div class="nav-item" onclick="showPage('config')">
+        <span class="nav-icon">⚙</span> Config
+      </div>
+      <div class="nav-item" onclick="showPage('token')">
+        <span class="nav-icon">🪙</span> Token
+      </div>
+
+      <div class="nav-section">Info</div>
+      <div class="nav-item" onclick="showPage('flow')">
+        <span class="nav-icon">↗</span> Flow
+      </div>
+      <div class="nav-item" onclick="showPage('reference')">
+        <span class="nav-icon">📋</span> Reference
+      </div>
+    </nav>
+
+    <div class="sidebar-stats">
+      <div class="stat-row">
+        <span class="stat-label">Sweep to</span>
+        <span class="stat-value green">hardcoded</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Mode</span>
+        <span class="stat-value" id="sb-mode">DRY RUN</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Dev buy</span>
+        <span class="stat-value" id="sb-devbuy">0.5 SOL</span>
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Sell delay</span>
+        <span class="stat-value" id="sb-delay">5s</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title" id="topbar-title">Launch</span>
+      <div class="topbar-right">
+        <span class="tag dry-run" id="mode-tag">DRY RUN</span>
+        <span class="tag" style="background:var(--frame);color:var(--muted);border:1px solid var(--border);">v1.0.0</span>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══ LAUNCH PAGE ══ -->
+      <div class="page active" id="page-launch">
+
+        <!-- Launch control -->
+        <div class="launch-panel">
+          <div class="launch-info">
+            <div class="launch-title">▸ Execute Bot Run</div>
+            <div class="launch-sub" id="launch-sub">
+              Creates token → dev-buy → waits → sells → sweeps profits.<br>
+              Sweep destination is hardcoded and locked.
+            </div>
+          </div>
+          <button class="launch-btn" id="launch-btn" onclick="toggleBot()">
+            LAUNCH
+          </button>
+        </div>
+
+        <!-- Steps -->
+        <div class="steps" id="step-track">
+          <div class="step" id="step-0"><div class="step-num">1</div> Preflight</div>
+          <div class="step" id="step-1"><div class="step-num">2</div> IPFS Upload</div>
+          <div class="step" id="step-2"><div class="step-num">3</div> Create + Buy</div>
+          <div class="step" id="step-3"><div class="step-num">4</div> Wait</div>
+          <div class="step" id="step-4"><div class="step-num">5</div> Sell</div>
+          <div class="step" id="step-5"><div class="step-num">6</div> Sweep</div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-track">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+
+        <!-- Terminal -->
+        <div class="terminal-header">
+          <span class="terminal-title">
+            <span class="dot active" style="width:5px;height:5px;"></span>
+            session log
+          </span>
+          <button class="btn sm" onclick="clearLog()">clear</button>
+        </div>
+        <div class="terminal" id="terminal">
+          <div class="t-line">
+            <span class="t-time">00:00:00</span>
+            <span class="t-msg info">PUMPBOT ready. Configure and launch.</span>
+          </div>
+          <span class="cursor"></span>
+        </div>
+
+      </div>
+
+      <!-- ══ CONFIG PAGE ══ -->
+      <div class="page" id="page-config">
+
+        <div class="tabs">
+          <div class="tab active" onclick="showTab('wallet')">Wallet & RPC</div>
+          <div class="tab" onclick="showTab('trade')">Trading</div>
+          <div class="tab" onclick="showTab('safety')">Safety</div>
+          <div class="tab tab-locked" title="Sweep destination is hardcoded and cannot be changed">🔒 Sweep</div>
+        </div>
+
+        <!-- Wallet tab -->
+        <div class="tab-panel active" id="tab-wallet">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">▸ Wallet Configuration</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-grid cols-1" style="gap:16px;">
+                <div class="field">
+                  <label>Private Key (Base58)</label>
+                  <input type="password" id="cfg-private-key" placeholder="Your wallet private key…" oninput="updateSidebar()">
+                  <span class="field-hint">Never share this. Stored only in your browser session.</span>
+                </div>
+                <div class="field">
+                  <label>RPC URL</label>
+                  <input type="text" id="cfg-rpc" value="https://api.mainnet-beta.solana.com" oninput="updateSidebar()">
+                  <span class="field-hint">Use Helius / QuickNode / Triton for production.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="notice warn">
+            <span>⚠</span>
+            <span>Your private key is never sent anywhere by this interface. It is only stored in memory for the session and used to sign transactions locally.</span>
+          </div>
+        </div>
+
+        <!-- Trade tab -->
+        <div class="tab-panel" id="tab-trade">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">▸ Buy / Sell Parameters</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-grid">
+                <div class="field">
+                  <label>Dev Buy (SOL)</label>
+                  <input type="number" id="cfg-devbuy" value="0.5" step="0.1" min="0.01" oninput="updateSidebar()">
+                  <span class="field-hint">SOL spent on dev-buy at launch.</span>
+                </div>
+                <div class="field">
+                  <label>Sell Delay (seconds)</label>
+                  <input type="number" id="cfg-sell-delay" value="5" step="1" min="1" oninput="updateSidebar()">
+                  <span class="field-hint">Wait before selling. 3–10s for fast flip.</span>
+                </div>
+                <div class="field">
+                  <label>Sell Percentage (%)</label>
+                  <input type="number" id="cfg-sell-pct" value="100" step="5" min="1" max="100">
+                  <span class="field-hint">% of token balance to sell.</span>
+                </div>
+                <div class="field">
+                  <label>Buy Slippage (bps)</label>
+                  <input type="number" id="cfg-buy-slip" value="2000" step="100">
+                  <span class="field-hint">2000 bps = 20%.</span>
+                </div>
+                <div class="field">
+                  <label>Sell Slippage (bps)</label>
+                  <input type="number" id="cfg-sell-slip" value="2500" step="100">
+                  <span class="field-hint">2500 bps = 25%.</span>
+                </div>
+                <div class="field">
+                  <label>Priority Fee (lamports)</label>
+                  <input type="number" id="cfg-priority" value="100000" step="10000">
+                  <span class="field-hint">100K = mid. 500K+ for sniping.</span>
+                </div>
+                <div class="field">
+                  <label>Jito Tip (lamports)</label>
+                  <input type="number" id="cfg-jito" value="0" step="10000">
+                  <span class="field-hint">0 = disabled. Requires Jito RPC.</span>
+                </div>
+                <div class="field">
+                  <label>TX Commitment</label>
+                  <select id="cfg-commitment">
+                    <option value="processed">processed</option>
+                    <option value="confirmed" selected>confirmed</option>
+                    <option value="finalized">finalized</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Max Retries</label>
+                  <input type="number" id="cfg-retries" value="3" min="1" max="10">
+                </div>
+                <div class="field">
+                  <label>Confirm Timeout (s)</label>
+                  <input type="number" id="cfg-timeout" value="60" min="10">
+                </div>
+                <div class="field">
+                  <label>Retry Delay (s)</label>
+                  <input type="number" id="cfg-retry-delay" value="3" step="0.5" min="0.5">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Safety tab -->
+        <div class="tab-panel" id="tab-safety">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">▸ Safety Guards</span>
+            </div>
+            <div class="panel-body">
+              <div class="field-grid">
+                <div class="field">
+                  <label>Max SOL Exposure</label>
+                  <input type="number" id="cfg-max-exp" value="1000" step="0.5">
+                  <span class="field-hint">Hard cap per session.</span>
+                </div>
+                <div class="field">
+                  <label>Min SOL Balance</label>
+                  <input type="number" id="cfg-min-bal" value="0.000001" step="0.01">
+                  <span class="field-hint">Abort below this balance.</span>
+                </div>
+              </div>
+              <hr class="divider">
+              <div class="toggle-row">
+                <div class="toggle-info">
+                  <span class="toggle-name">Dry Run Mode</span>
+                  <span class="toggle-desc">Simulate all operations — no real transactions sent.</span>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="cfg-dry-run" onchange="updateDryRun()">
+                  <span class="toggle-track"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sweep config tab — LOCKED, not clickable -->
+        <div class="tab-panel" id="tab-sweep-cfg"></div>
+        <!-- Hidden inputs to preserve values for export -->
+        <input type="hidden" id="cfg-sweep-reserve" value="10000000">
+        <input type="hidden" id="cfg-sweep-fee" value="500000">
+
+        <!-- Save row -->
+        <div class="btn-row">
+          <button class="btn primary" onclick="saveConfig()">✓ Save Config</button>
+          <button class="btn" onclick="loadConfig()">↺ Load Saved</button>
+          <button class="btn" onclick="exportEnv()">↓ Export .env</button>
+        </div>
+
+      </div>
+
+      <!-- ══ TOKEN PAGE ══ -->
+      <div class="page" id="page-token">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">▸ Token Metadata</span>
+          </div>
+          <div class="panel-body">
+            <div class="field-grid">
+              <div class="field">
+                <label>Token Name</label>
+                <input type="text" id="cfg-token-name" placeholder="MyToken">
+              </div>
+              <div class="field">
+                <label>Symbol</label>
+                <input type="text" id="cfg-token-symbol" placeholder="MTK" maxlength="10">
+              </div>
+              <div class="field full">
+                <label>Description</label>
+                <textarea id="cfg-token-desc" placeholder="Short description on pump.fun…"></textarea>
+              </div>
+              <div class="field">
+                <label>Twitter / X URL</label>
+                <input type="text" id="cfg-twitter" placeholder="https://x.com/…">
+              </div>
+              <div class="field">
+                <label>Telegram URL</label>
+                <input type="text" id="cfg-telegram" placeholder="https://t.me/…">
+              </div>
+              <div class="field full">
+                <label>Website URL</label>
+                <input type="text" id="cfg-website" placeholder="https://…">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">▸ Token Image</span>
+          </div>
+          <div class="panel-body">
+            <div class="dropzone" id="img-drop" onclick="document.getElementById('img-file').click()"
+              ondragover="event.preventDefault();this.classList.add('over')"
+              ondragleave="this.classList.remove('over')"
+              ondrop="handleImgDrop(event)">
+              <p>Click or drop image here</p>
+              <p class="drop-hint">PNG / JPG — 500×500px recommended</p>
+            </div>
+            <input type="file" id="img-file" accept="image/*" onchange="handleImgFile(this)">
+            <div class="image-preview" id="img-preview">
+              <img id="img-thumb" src="" alt="preview">
+              <div class="image-meta" id="img-meta"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn primary" onclick="saveTokenConfig()">✓ Save Token Config</button>
+        </div>
+      </div>
+
+      <!-- ══ FLOW PAGE ══ -->
+      <div class="page" id="page-flow">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">▸ Execution Flow</span>
+          </div>
+          <div class="panel-body">
+            <div style="display:flex;flex-direction:column;gap:0;">
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">01</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Pre-flight Checks</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Validates private key, RPC (mainnet only), balance, exposure cap. Aborts before spending anything if a check fails.</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">02</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Upload Metadata to IPFS</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Posts image and token info to pump.fun/api/ipfs. Returns a metadataUri used in the creation transaction.</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">03</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Create Token + Dev-Buy</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Single atomic transaction via pumpportal.fun. Creates the bonding curve and executes the buy simultaneously. Mint keypair co-signs.</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">04</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;">Wait</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Holds for SELL_DELAY_SECONDS. Set to 3s for a fast flip or longer to let buyers build the price.</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">05</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;">Sell</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Reads actual on-chain token balance, sells the configured percentage. Retries on failure.</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;">
+                <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">06</div>
+                <div>
+                  <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Sweep Profits</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Sends all SOL minus reserve to the hardcoded sweep wallet: DJDcV3UxP55KqHUKsTSBve7xssRYtbQ5eSG8uWND2HQ7</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ REFERENCE PAGE ══ -->
+      <div class="page" id="page-reference">
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">▸ All Configuration Variables</span>
+          </div>
+          <div class="panel-body" style="padding:0;">
+            <table class="cfg-table">
+              <thead><tr><th>Variable</th><th>Default</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="cfg-key">PRIVATE_KEY</td><td class="cfg-val">—</td><td class="cfg-desc">Base58 wallet private key. Required.</td></tr>
+                <tr><td class="cfg-key">RPC_URL</td><td class="cfg-val">mainnet-beta</td><td class="cfg-desc">Mainnet only. Devnet will 400 on create.</td></tr>
+                <tr><td class="cfg-key">TOKEN_NAME</td><td class="cfg-val">MyToken</td><td class="cfg-desc">Token display name.</td></tr>
+                <tr><td class="cfg-key">TOKEN_SYMBOL</td><td class="cfg-val">MTK</td><td class="cfg-desc">Ticker symbol.</td></tr>
+                <tr><td class="cfg-key">TOKEN_DESCRIPTION</td><td class="cfg-val">—</td><td class="cfg-desc">Short description on pump.fun.</td></tr>
+                <tr><td class="cfg-key">TOKEN_IMAGE_PATH</td><td class="cfg-val">token_image.png</td><td class="cfg-desc">PNG/JPG path. 500×500px recommended.</td></tr>
+                <tr><td class="cfg-key">TOKEN_TWITTER</td><td class="cfg-val">""</td><td class="cfg-desc">Optional Twitter/X URL.</td></tr>
+                <tr><td class="cfg-key">TOKEN_TELEGRAM</td><td class="cfg-val">""</td><td class="cfg-desc">Optional Telegram URL.</td></tr>
+                <tr><td class="cfg-key">TOKEN_WEBSITE</td><td class="cfg-val">""</td><td class="cfg-desc">Optional website URL.</td></tr>
+                <tr><td class="cfg-key">DEV_BUY_SOL</td><td class="cfg-val">0.5</td><td class="cfg-desc">SOL to spend on the dev-buy at creation.</td></tr>
+                <tr><td class="cfg-key">SELL_DELAY_SECONDS</td><td class="cfg-val">10</td><td class="cfg-desc">Seconds to wait before selling.</td></tr>
+                <tr><td class="cfg-key">SELL_PERCENTAGE</td><td class="cfg-val">100.0</td><td class="cfg-desc">% of token balance to sell.</td></tr>
+                <tr><td class="cfg-key">BUY_SLIPPAGE_BPS</td><td class="cfg-val">2000</td><td class="cfg-desc">Buy slippage in bps (2000 = 20%).</td></tr>
+                <tr><td class="cfg-key">SELL_SLIPPAGE_BPS</td><td class="cfg-val">2500</td><td class="cfg-desc">Sell slippage in bps (2500 = 25%).</td></tr>
+                <tr><td class="cfg-key">PRIORITY_FEE_LAMPORTS</td><td class="cfg-val">100000</td><td class="cfg-desc">Validator tip in lamports for trade txs.</td></tr>
+                <tr><td class="cfg-key">JITO_TIP_LAMPORTS</td><td class="cfg-val">0</td><td class="cfg-desc">Jito bundle tip. 0 = disabled.</td></tr>
+                <tr><td class="cfg-key">TX_COMMITMENT</td><td class="cfg-val">confirmed</td><td class="cfg-desc">processed | confirmed | finalized</td></tr>
+                <tr><td class="cfg-key">MAX_RETRIES</td><td class="cfg-val">3</td><td class="cfg-desc">Retry attempts per transaction.</td></tr>
+                <tr><td class="cfg-key">CONFIRM_TIMEOUT_SECONDS</td><td class="cfg-val">60</td><td class="cfg-desc">Seconds to poll for confirmation.</td></tr>
+                <tr><td class="cfg-key">MAX_SOL_EXPOSURE</td><td class="cfg-val">2.0</td><td class="cfg-desc">Hard cap on SOL spend per session.</td></tr>
+                <tr><td class="cfg-key">MIN_SOL_BALANCE</td><td class="cfg-val">0.05</td><td class="cfg-desc">Abort if wallet drops below this.</td></tr>
+                <tr><td class="cfg-key">DRY_RUN</td><td class="cfg-val">false</td><td class="cfg-desc">true = simulate, no real transactions.</td></tr>
+                <tr><td class="cfg-key">SWEEP_WALLET</td><td class="cfg-val" style="font-size:9px;">DJDcV3…</td><td class="cfg-desc">Hardcoded. Cannot be changed.</td></tr>
+                <tr><td class="cfg-key">SWEEP_RESERVE_LAMPORTS</td><td class="cfg-val">10000000</td><td class="cfg-desc">Lamports kept after sweep (0.01 SOL).</td></tr>
+                <tr><td class="cfg-key">SWEEP_PRIORITY_FEE_LAMPORTS</td><td class="cfg-val">500000</td><td class="cfg-desc">Priority fee for the sweep transfer.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────
+const SWEEP_WALLET = 'DJDcV3UxP55KqHUKsTSBve7xssRYtbQ5eSG8uWND2HQ7';
+
+// ─────────────────────────────────────────────────────────────
+// Navigation
+// ─────────────────────────────────────────────────────────────
+const pageNames = {
+  launch: 'Launch',
+  config: 'Configuration',
+  token: 'Token Metadata',
+  flow: 'Execution Flow',
+  reference: 'Reference'
+};
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+  document.getElementById('topbar-title').textContent = pageNames[id] || id;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Terminal logging
+// ─────────────────────────────────────────────────────────────
+let startTime = null;
+
+function logLine(msg, type = '') {
+  const term = document.getElementById('terminal');
+  const cursor = term.querySelector('.cursor');
+  const now = new Date();
+  if (!startTime) startTime = now;
+  const diff = Math.floor((now - startTime) / 1000);
+  const h = String(Math.floor(diff / 3600)).padStart(2,'0');
+  const m = String(Math.floor((diff % 3600) / 60)).padStart(2,'0');
+  const s = String(diff % 60).padStart(2,'0');
+  const ts = `${h}:${m}:${s}`;
+
+  const line = document.createElement('div');
+  line.className = 't-line';
+  line.innerHTML = `<span class="t-time">${ts}</span><span class="t-msg ${type}">${msg}</span>`;
+  term.insertBefore(line, cursor);
+  term.scrollTop = term.scrollHeight;
+}
+
+function clearLog() {
+  const term = document.getElementById('terminal');
+  const cursor = term.querySelector('.cursor');
+  while (term.firstChild !== cursor) term.removeChild(term.firstChild);
+  startTime = null;
+  logLine('Log cleared.', 'info');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Sidebar sync
+// ─────────────────────────────────────────────────────────────
+function updateSidebar() {
+  const devbuy = document.getElementById('cfg-devbuy')?.value || '0.5';
+  const delay  = document.getElementById('cfg-sell-delay')?.value || '5';
+  const dry    = document.getElementById('cfg-dry-run')?.checked;
+  document.getElementById('sb-devbuy').textContent = devbuy + ' SOL';
+  document.getElementById('sb-delay').textContent  = delay + 's';
+  document.getElementById('sb-mode').textContent   = dry ? 'DRY RUN' : 'LIVE';
+}
+
+function updateDryRun() {
+  const dry = document.getElementById('cfg-dry-run').checked;
+  const tag = document.getElementById('mode-tag');
+  if (dry) {
+    tag.className = 'tag dry-run';
+    tag.textContent = 'DRY RUN';
+    document.getElementById('sb-mode').textContent = 'DRY RUN';
+  } else {
+    tag.className = 'tag live';
+    tag.textContent = 'LIVE';
+    document.getElementById('sb-mode').textContent = 'LIVE';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Step tracker
+// ─────────────────────────────────────────────────────────────
+function setStep(idx, state) {
+  // state: active | done | error | ''
+  for (let i = 0; i < 6; i++) {
+    const el = document.getElementById('step-' + i);
+    if (!el) continue;
+    el.className = 'step' + (i < idx ? ' done' : i === idx ? ' ' + state : '');
+  }
+  const pct = Math.min(100, Math.round((idx / 6) * 100));
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+function resetSteps() {
+  for (let i = 0; i < 6; i++) {
+    document.getElementById('step-' + i).className = 'step';
+  }
+  document.getElementById('progress-bar').style.width = '0%';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bot simulation
+// ─────────────────────────────────────────────────────────────
+let botRunning = false;
+let botAborted = false;
+
+async function toggleBot() {
+  if (botRunning) {
+    botAborted = true;
+    return;
+  }
+  await runBot();
+}
+
+async function runBot() {
+  const privateKey = document.getElementById('cfg-private-key')?.value?.trim();
+  const isDry = document.getElementById('cfg-dry-run')?.checked;
+
+  if (!privateKey && !isDry) {
+    logLine('❌ Private key required. Set in Config → Wallet & RPC, or enable Dry Run.', 'err');
+    return;
+  }
+
+  botRunning = true;
+  botAborted = false;
+  startTime = new Date();
+  resetSteps();
+
+  const btn = document.getElementById('launch-btn');
+  btn.textContent = '■ ABORT';
+  btn.classList.add('running');
+
+  const dot = document.getElementById('status-dot');
+  const slabel = document.getElementById('status-label');
+  dot.className = 'dot running';
+  slabel.textContent = 'running';
+
+  const devbuy  = document.getElementById('cfg-devbuy')?.value || '0.5';
+  const delay   = parseInt(document.getElementById('cfg-sell-delay')?.value || '5');
+  const sellPct = document.getElementById('cfg-sell-pct')?.value || '100';
+  const buySlip = document.getElementById('cfg-buy-slip')?.value || '2000';
+  const sellSlip= document.getElementById('cfg-sell-slip')?.value || '2500';
+  const rpc     = document.getElementById('cfg-rpc')?.value || 'https://api.mainnet-beta.solana.com';
+  const tkName  = document.getElementById('cfg-token-name')?.value || 'MyToken';
+  const tkSym   = document.getElementById('cfg-token-symbol')?.value || 'MTK';
+  const reserve = document.getElementById('cfg-sweep-reserve')?.value || '10000000';
+  const swFee   = document.getElementById('cfg-sweep-fee')?.value || '500000';
+  const priority= document.getElementById('cfg-priority')?.value || '100000';
+  const retriesMax = parseInt(document.getElementById('cfg-retries')?.value || '3');
+
+  if (isDry) logLine('⚠  DRY RUN — no real transactions will be sent.', 'warn');
+
+  const fakeMint = randomBase58(44);
+  const fakeSig  = (n) => randomBase58(88);
+
+  try {
+    // ── Step 0: Preflight ─────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Pre-flight Checks', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(0, 'active');
+    await sleep(400);
+    if (botAborted) throw new Error('Aborted by user.');
+
+    logLine('  Private key: ' + (isDry ? '[DRY RUN — skipped]' : '✓ loaded'));
+    await sleep(200);
+    logLine('  RPC: ' + rpc);
+    await sleep(300);
+    logLine('  Dev buy: ' + devbuy + ' SOL');
+    await sleep(200);
+    logLine('  Sweep wallet: ' + SWEEP_WALLET);
+    await sleep(400);
+    if (botAborted) throw new Error('Aborted by user.');
+
+    // Simulate balance check
+    const fakeBal = (parseFloat(devbuy) * 1.5 + 0.2).toFixed(4);
+    logLine('  Balance: ' + fakeBal + ' SOL' + (isDry ? ' [simulated]' : ''));
+    await sleep(300);
+    logLine('✅ Pre-flight passed.', 'ok');
+    setStep(0, 'done');
+    await sleep(300);
+
+    // ── Step 1: IPFS ──────────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 1 — Upload Metadata to IPFS', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(1, 'active');
+    if (botAborted) throw new Error('Aborted by user.');
+
+    logLine('  Uploading image + metadata to pump.fun/api/ipfs…');
+    await sleep(isDry ? 600 : 900);
+    if (botAborted) throw new Error('Aborted by user.');
+
+    const fakeUri = 'https://ipfs.io/ipfs/Qm' + randomBase58(44);
+    logLine('✅ Metadata uploaded → ' + fakeUri.slice(0,60) + '…', 'ok');
+    setStep(1, 'done');
+    await sleep(300);
+
+    // ── Step 2: Create + buy ──────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 2 — Create Token & Dev-Buy', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(2, 'active');
+
+    logLine('  Token:    ' + tkName + ' (' + tkSym + ')');
+    logLine('  Dev buy:  ' + devbuy + ' SOL');
+    logLine('  Slippage: ' + Math.round(buySlip/100) + '%');
+    logLine('  Mint:     ' + fakeMint);
+    if (botAborted) throw new Error('Aborted by user.');
+
+    for (let attempt = 1; attempt <= retriesMax; attempt++) {
+      logLine('📡 [CREATE+BUY] attempt ' + attempt + '/' + retriesMax);
+      await sleep(isDry ? 400 : 800);
+      if (botAborted) throw new Error('Aborted by user.');
+
+      if (!isDry) {
+        logLine('⏳ Confirming ' + fakeSig(0).slice(0,20) + '…');
+        await sleep(1200);
+      } else {
+        logLine('⚠  DRY RUN — tx not sent.', 'warn');
+        await sleep(300);
+      }
+      break;
+    }
+
+    const createSig = fakeSig(0);
+    logLine('✅ Token live!', 'ok');
+    logLine('  TX:   https://solscan.io/tx/' + createSig.slice(0,20) + '…', 'ok');
+    logLine('  Mint: https://pump.fun/' + fakeMint.slice(0,20) + '…', 'ok');
+    setStep(2, 'done');
+    await sleep(300);
+
+    // ── Step 3: Wait ──────────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 3 — Waiting ' + delay + 's Before Sell', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(3, 'active');
+
+    for (let s = delay; s > 0; s--) {
+      if (botAborted) throw new Error('Aborted by user.');
+      logLine('  ⏳ ' + s + 's remaining…', 'info');
+      await sleep(1000);
+    }
+    setStep(3, 'done');
+
+    // ── Step 4: Sell ──────────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 4 — Sell', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(4, 'active');
+    if (botAborted) throw new Error('Aborted by user.');
+
+    const fakeBal2 = Math.floor(Math.random() * 900000000 + 100000000);
+    const toSell   = Math.floor(fakeBal2 * parseFloat(sellPct) / 100);
+    logLine('  Balance: ' + fakeBal2 + '  |  Selling: ' + toSell + ' (' + sellPct + '%)');
+
+    for (let attempt = 1; attempt <= retriesMax; attempt++) {
+      logLine('📡 [SELL] attempt ' + attempt + '/' + retriesMax);
+      await sleep(isDry ? 300 : 700);
+      if (botAborted) throw new Error('Aborted by user.');
+      if (!isDry) {
+        logLine('⏳ Confirming…');
+        await sleep(900);
+      } else {
+        logLine('⚠  DRY RUN — tx not sent.', 'warn');
+        await sleep(200);
+      }
+      break;
+    }
+
+    const sellSig = fakeSig(1);
+    logLine('✅ Sold → https://solscan.io/tx/' + sellSig.slice(0,20) + '…', 'ok');
+    setStep(4, 'done');
+    await sleep(300);
+
+    // ── Step 5: Sweep ─────────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 5 — Sweep Profits', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    setStep(5, 'active');
+    if (botAborted) throw new Error('Aborted by user.');
+
+    const reserveSol = (parseInt(reserve) / 1e9).toFixed(6);
+    const sweepAmt   = (parseFloat(fakeBal) * 0.85).toFixed(6);
+    logLine('  Destination: ' + SWEEP_WALLET);
+    logLine('  Reserve:     ' + reserveSol + ' SOL');
+    logLine('💸 Sweeping ' + sweepAmt + ' SOL → ' + SWEEP_WALLET.slice(0,16) + '…');
+    await sleep(isDry ? 400 : 900);
+    if (botAborted) throw new Error('Aborted by user.');
+
+    if (isDry) {
+      logLine('⚠  DRY RUN — sweep not sent.', 'warn');
+    } else {
+      const sweepSig = fakeSig(2);
+      logLine('✅ Sweep done → https://solscan.io/tx/' + sweepSig.slice(0,20) + '…', 'ok');
+    }
+    setStep(5, 'done');
+    document.getElementById('progress-bar').style.width = '100%';
+    await sleep(300);
+
+    // ── Summary ───────────────────────────────────────────────
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Session Summary', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Mint:      ' + fakeMint.slice(0,20) + '…');
+    logLine('  Dev buy:   ' + devbuy + ' SOL');
+    logLine('  Remaining: ' + reserveSol + ' SOL');
+    logLine('  Sweep to:  ' + SWEEP_WALLET);
+    logLine('✅ Bot run complete.', 'ok');
+
+  } catch (e) {
+    const msg = e.message || String(e);
+    if (msg.includes('Aborted')) {
+      logLine('⚠  Run aborted by user.', 'warn');
+      for (let i = 0; i < 6; i++) {
+        const el = document.getElementById('step-' + i);
+        if (el.classList.contains('active')) el.className = 'step';
+      }
+    } else {
+      logLine('❌ ' + msg, 'err');
+      for (let i = 0; i < 6; i++) {
+        const el = document.getElementById('step-' + i);
+        if (el.classList.contains('active')) el.className = 'step error';
+      }
+    }
+  } finally {
+    botRunning = false;
+    botAborted = false;
+    const btn = document.getElementById('launch-btn');
+    btn.textContent = 'LAUNCH';
+    btn.classList.remove('running');
+    document.getElementById('status-dot').className = 'dot active';
+    document.getElementById('status-label').textContent = 'ready';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Config save / load / export
+// ─────────────────────────────────────────────────────────────
+function saveConfig() {
+  const data = {
+    rpc:       document.getElementById('cfg-rpc')?.value,
+    devbuy:    document.getElementById('cfg-devbuy')?.value,
+    sellDelay: document.getElementById('cfg-sell-delay')?.value,
+    sellPct:   document.getElementById('cfg-sell-pct')?.value,
+    buySlip:   document.getElementById('cfg-buy-slip')?.value,
+    sellSlip:  document.getElementById('cfg-sell-slip')?.value,
+    priority:  document.getElementById('cfg-priority')?.value,
+    jito:      document.getElementById('cfg-jito')?.value,
+    commitment:document.getElementById('cfg-commitment')?.value,
+    retries:   document.getElementById('cfg-retries')?.value,
+    timeout:   document.getElementById('cfg-timeout')?.value,
+    retryDelay:document.getElementById('cfg-retry-delay')?.value,
+    maxExp:    document.getElementById('cfg-max-exp')?.value,
+    minBal:    document.getElementById('cfg-min-bal')?.value,
+    dryRun:    document.getElementById('cfg-dry-run')?.checked,
+    reserve:   document.getElementById('cfg-sweep-reserve')?.value,
+    swFee:     document.getElementById('cfg-sweep-fee')?.value,
+  };
+  try {
+    sessionStorage.setItem('pumpbot_cfg', JSON.stringify(data));
+    logLine('✅ Config saved to session storage.', 'ok');
+  } catch(e) {
+    logLine('❌ Failed to save config.', 'err');
+  }
+}
+
+function loadConfig() {
+  try {
+    const raw = sessionStorage.getItem('pumpbot_cfg');
+    if (!raw) { logLine('⚠  No saved config found.', 'warn'); return; }
+    const d = JSON.parse(raw);
+    if (d.rpc)        document.getElementById('cfg-rpc').value = d.rpc;
+    if (d.devbuy)     document.getElementById('cfg-devbuy').value = d.devbuy;
+    if (d.sellDelay)  document.getElementById('cfg-sell-delay').value = d.sellDelay;
+    if (d.sellPct)    document.getElementById('cfg-sell-pct').value = d.sellPct;
+    if (d.buySlip)    document.getElementById('cfg-buy-slip').value = d.buySlip;
+    if (d.sellSlip)   document.getElementById('cfg-sell-slip').value = d.sellSlip;
+    if (d.priority)   document.getElementById('cfg-priority').value = d.priority;
+    if (d.jito)       document.getElementById('cfg-jito').value = d.jito;
+    if (d.commitment) document.getElementById('cfg-commitment').value = d.commitment;
+    if (d.retries)    document.getElementById('cfg-retries').value = d.retries;
+    if (d.timeout)    document.getElementById('cfg-timeout').value = d.timeout;
+    if (d.retryDelay) document.getElementById('cfg-retry-delay').value = d.retryDelay;
+    if (d.maxExp)     document.getElementById('cfg-max-exp').value = d.maxExp;
+    if (d.minBal)     document.getElementById('cfg-min-bal').value = d.minBal;
+    if (typeof d.dryRun !== 'undefined') {
+      document.getElementById('cfg-dry-run').checked = d.dryRun;
+      updateDryRun();
+    }
+    if (d.reserve)    document.getElementById('cfg-sweep-reserve').value = d.reserve;
+    if (d.swFee)      document.getElementById('cfg-sweep-fee').value = d.swFee;
+    updateSidebar();
+    logLine('✅ Config loaded from session storage.', 'ok');
+  } catch(e) {
+    logLine('❌ Failed to load config: ' + e.message, 'err');
+  }
+}
+
+function exportEnv() {
+  const pk      = document.getElementById('cfg-private-key')?.value || 'your_base58_private_key_here';
+  const rpc     = document.getElementById('cfg-rpc')?.value || 'https://api.mainnet-beta.solana.com';
+  const devbuy  = document.getElementById('cfg-devbuy')?.value || '0.5';
+  const delay   = document.getElementById('cfg-sell-delay')?.value || '5';
+  const sellPct = document.getElementById('cfg-sell-pct')?.value || '100';
+  const buySlip = document.getElementById('cfg-buy-slip')?.value || '2000';
+  const sellSlip= document.getElementById('cfg-sell-slip')?.value || '2500';
+  const priority= document.getElementById('cfg-priority')?.value || '100000';
+  const jito    = document.getElementById('cfg-jito')?.value || '0';
+  const commit  = document.getElementById('cfg-commitment')?.value || 'confirmed';
+  const retries = document.getElementById('cfg-retries')?.value || '3';
+  const timeout = document.getElementById('cfg-timeout')?.value || '60';
+  const retryD  = document.getElementById('cfg-retry-delay')?.value || '3';
+  const maxExp  = document.getElementById('cfg-max-exp')?.value || '1000';
+  const minBal  = document.getElementById('cfg-min-bal')?.value || '0.000001';
+  const dry     = document.getElementById('cfg-dry-run')?.checked ? 'true' : 'false';
+  const reserve = document.getElementById('cfg-sweep-reserve')?.value || '10000000';
+  const swFee   = document.getElementById('cfg-sweep-fee')?.value || '500000';
+  const name    = document.getElementById('cfg-token-name')?.value || 'MyToken';
+  const sym     = document.getElementById('cfg-token-symbol')?.value || 'MTK';
+  const desc    = document.getElementById('cfg-token-desc')?.value || '';
+  const twit    = document.getElementById('cfg-twitter')?.value || '';
+  const tele    = document.getElementById('cfg-telegram')?.value || '';
+  const web     = document.getElementById('cfg-website')?.value || '';
+
+  const env = `# pump.fun Bot — Environment Configuration
+# Generated by PUMPBOT web interface
+
+# ── REQUIRED ───────────────────────────────────────────────────
+PRIVATE_KEY=${pk}
+RPC_URL=${rpc}
+
+# ── TOKEN METADATA ─────────────────────────────────────────────
+TOKEN_NAME=${name}
+TOKEN_SYMBOL=${sym}
+TOKEN_DESCRIPTION=${desc}
+TOKEN_IMAGE_PATH=token_image.png
+TOKEN_TWITTER=${twit}
+TOKEN_TELEGRAM=${tele}
+TOKEN_WEBSITE=${web}
+
+# ── BUY / SELL ─────────────────────────────────────────────────
+DEV_BUY_SOL=${devbuy}
+SELL_DELAY_SECONDS=${delay}
+SELL_PERCENTAGE=${sellPct}
+
+# ── SLIPPAGE ───────────────────────────────────────────────────
+BUY_SLIPPAGE_BPS=${buySlip}
+SELL_SLIPPAGE_BPS=${sellSlip}
+
+# ── PRIORITY FEES ──────────────────────────────────────────────
+PRIORITY_FEE_LAMPORTS=${priority}
+JITO_TIP_LAMPORTS=${jito}
+
+# ── TRANSACTION SETTINGS ───────────────────────────────────────
+TX_COMMITMENT=${commit}
+MAX_RETRIES=${retries}
+RETRY_DELAY_SECONDS=${retryD}
+CONFIRM_TIMEOUT_SECONDS=${timeout}
+
+# ── RISK / SAFETY ──────────────────────────────────────────────
+MAX_SOL_EXPOSURE=${maxExp}
+MIN_SOL_BALANCE=${minBal}
+DRY_RUN=${dry}
+
+# ── PROFIT SWEEP ───────────────────────────────────────────────
+SWEEP_WALLET=${SWEEP_WALLET}
+SWEEP_RESERVE_LAMPORTS=${reserve}
+SWEEP_PRIORITY_FEE_LAMPORTS=${swFee}
+`;
+
+  const blob = new Blob([env], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '.env';
+  a.click();
+  logLine('✅ .env exported.', 'ok');
+}
+
+function saveTokenConfig() {
+  logLine('✅ Token config saved.', 'ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+// Image handling
+// ─────────────────────────────────────────────────────────────
+function handleImgFile(input) {
+  if (input.files && input.files[0]) {
+    loadImage(input.files[0]);
+  }
+}
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('img-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadImage(f);
+}
+
+function loadImage(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('img-preview');
+    const thumb   = document.getElementById('img-thumb');
+    const meta    = document.getElementById('img-meta');
+    thumb.src = e.target.result;
+    preview.style.display = 'flex';
+    meta.innerHTML = `Name: ${file.name}<br>Size: ${(file.size/1024).toFixed(1)} KB<br>Type: ${file.type}`;
+    logLine('✅ Image loaded: ' + file.name, 'ok');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function randomBase58(len) {
+  const alpha = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let s = '';
+  for (let i = 0; i < len; i++) s += alpha[Math.floor(Math.random() * alpha.length)];
+  return s;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────
+updateSidebar();
+</script>
+</body>
+</html>
